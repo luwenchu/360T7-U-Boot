@@ -7,7 +7,7 @@
 		<link rel="stylesheet" href="/style.css">
 		<script src="/main.js"></script>
 	</head>
-	<body onload="startup()">
+	<body onload="getmtdlayoutlist()">
 		<header class="topbar">
 			<div class="brand">
 				<span class="brand-mark">360</span>
@@ -55,15 +55,13 @@
 						<li>电脑应自动获得 192.168.1.100-192.168.1.199 地址，管理页固定为 192.168.1.1。</li>
 						<li><strong>首次通过 U-Boot Web 刷入本仓库固件可能需要约 10 分钟，期间即使页面暂时无响应也不要断电或重启。</strong></li>
 						<li>写入过程中不要断电、拔网线或关闭浏览器。</li>
-						<li>本页面不会把 IPQ60xx 的 ART、CDT 或 NOR 分区操作用于本机。</li>
 						<li>错误的 FIP、分区布局或机型仍可能导致设备无法启动。</li>
 					</ul>
 				</div>
 			</section>
 		</main>
 		<footer class="version-footer">
-			<span id="version"></span>
-			<span> · 构建日期：2026-07-26</span>
+			<span>郑州子安信息科技 · 构建日期：2026-07-26</span>
 		</footer>
 	</body>
 </html>

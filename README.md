@@ -10,6 +10,8 @@ hardware code, NOR partition table, ART/CDT handler, or binary is used.
 The interface provides dedicated pages for firmware update, initramfs RAM boot
 and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
 upload path and writes the fixed-layout `fip` partition.
+All three Web pages use the footer `郑州子安信息科技 · 构建日期：2026-07-26`
+and do not display the upstream U-Boot version string.
 
 While Web recovery is active, a minimal DHCPv4 server automatically assigns
 temporary addresses from `192.168.1.100-192.168.1.199`. The recovery Web

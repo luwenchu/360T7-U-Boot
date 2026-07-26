@@ -36,6 +36,19 @@ grep -Fq 'Qihoo 360T7 Recovery' \
 grep -Fq '首次通过 U-Boot Web 刷入本仓库固件可能需要约 10 分钟' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "first firmware flash duration warning is missing"
+if grep -Fq 'IPQ60xx 的 ART、CDT 或 NOR 分区操作' \
+	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html"; then
+	fail "obsolete IPQ60xx Web warning is still present"
+fi
+for page in index.html initramfs.html uboot.html; do
+	grep -Fq '郑州子安信息科技 · 构建日期：2026-07-26' \
+		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
+		fail "company footer is missing from $page"
+	if grep -Fq 'id="version"' \
+		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page"; then
+		fail "U-Boot version footer is still enabled in $page"
+	fi
+done
 grep -Fq "upload('fip')" \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/uboot.html" ||
 	fail "U-Boot update page does not use the upstream FIP upload handler"
@@ -71,6 +84,7 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "web_overlay=Qihoo 360T7 Recovery"
 	echo "web_uboot_update=enabled"
 	echo "first_firmware_flash_warning=about_10_minutes"
+	echo "web_footer=Zhengzhou_Zian_Information_Technology"
 	echo "build_date=2026-07-26"
 } > "$DIST_DIR/validation-report.txt"
 
