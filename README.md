@@ -43,6 +43,10 @@ sparse checkout, applies the local Web overlay and builds only:
 SOC=mt7981 BOARD=360t7 FIXED_MTDPARTS=1 ./build.sh
 ```
 
+`SOURCE_DATE_EPOCH`, `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST` are fixed from
+the pinned upstream commit so repeated builds of the same repository commit
+produce the same FIP hash.
+
 ## Flashing warning
 
 This is an untested bootloader build. A successful CI build and static

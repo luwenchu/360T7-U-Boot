@@ -31,6 +31,11 @@ test "$(git -C "$SOURCE_DIR" rev-parse HEAD)" = "$UPSTREAM_COMMIT"
 test -f "$SOURCE_DIR/$ATF_DIR/configs/mt7981_360t7_defconfig"
 test -f "$SOURCE_DIR/$UBOOT_DIR/configs/mt7981_360t7_defconfig"
 
+SOURCE_DATE_EPOCH="$(git -C "$SOURCE_DIR" show -s --format=%ct HEAD)"
+export SOURCE_DATE_EPOCH
+export KBUILD_BUILD_USER="360t7-builder"
+export KBUILD_BUILD_HOST="github-actions"
+
 cp -R "$PROJECT_DIR/overlay/." "$SOURCE_DIR/"
 
 (
