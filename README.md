@@ -16,6 +16,11 @@ temporary addresses from `192.168.1.100-192.168.1.199`. The recovery Web
 address remains fixed at `192.168.1.1`, so it is still reachable with a manual
 computer address if DHCP negotiation fails.
 
+The first firmware installation through U-Boot Web can take about 10 minutes.
+Do not power off or restart the router if the page temporarily stops updating;
+wait for the write and initialization process to finish and for the device to
+restart.
+
 ## Output
 
 The GitHub Actions build produces:
