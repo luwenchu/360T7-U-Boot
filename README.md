@@ -8,6 +8,11 @@ The Web recovery interface is restyled for the 360T7 while retaining the
 upstream MediaTek upload, image validation and flashing handlers. No IPQ60xx
 hardware code, NOR partition table, ART/CDT handler, or binary is used.
 
+While Web recovery is active, a minimal DHCPv4 server automatically assigns
+temporary addresses from `192.168.1.100-192.168.1.199`. The recovery Web
+address remains fixed at `192.168.1.1`, so it is still reachable with a manual
+computer address if DHCP negotiation fails.
+
 ## Output
 
 The GitHub Actions build produces:

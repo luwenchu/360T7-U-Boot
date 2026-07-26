@@ -24,6 +24,8 @@ grep -qx 'CONFIG_ENABLE_NAND_NMBM=y' "$UBOOT_CFG" ||
 	fail "NMBM is not enabled"
 grep -qx 'CONFIG_MTD_SPI_NAND=y' "$UBOOT_CFG" ||
 	fail "SPI-NAND is not enabled"
+grep -qx 'CONFIG_WEBUI_DHCP_SERVER=y' "$UBOOT_CFG" ||
+	fail "failsafe DHCP server is not enabled"
 grep -Fqx "CONFIG_MTDPARTS_DEFAULT=\"$EXPECTED_MTDPARTS\"" "$UBOOT_CFG" ||
 	fail "fixed partition layout changed"
 grep -Fq 'Qihoo 360T7 Recovery' \
@@ -48,6 +50,7 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "storage=SPI-NAND"
 	echo "nmbm=enabled"
 	echo "fixed_mtdparts=enabled"
+	echo "failsafe_dhcp_server=192.168.1.100-192.168.1.199"
 	echo "fip_partition_limit=$FIP_LIMIT"
 	echo "fip_size=$FIP_SIZE"
 	echo "mtdparts=$EXPECTED_MTDPARTS"

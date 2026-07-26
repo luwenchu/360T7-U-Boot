@@ -1,0 +1,85 @@
+diff --git a/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig b/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
+index 16c386d..c2f73ab 100644
+--- a/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
++++ b/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
+@@ -15,6 +15,7 @@ CONFIG_MEDIATEK_BOOTMENU=y
+ CONFIG_MEDIATEK_BOOTMENU_DELAY=3
+ CONFIG_MTK_WEB_FAILSAFE=y
+ CONFIG_MTK_WEB_FAILSAFE_AFTER_BOOT_FAILURE=y
++CONFIG_WEBUI_DHCP_SERVER=y
+ CONFIG_MTK_UBI_SUPPORT=y
+ CONFIG_MTK_UPGRADE_BL2_VERIFY=y
+ # CONFIG_MTK_UPGRADE_IMAGE_VERIFY is not set
+diff --git a/uboot-mtk-20230718-09eda825/failsafe/Kconfig b/uboot-mtk-20230718-09eda825/failsafe/Kconfig
+index 1d5d5c1..82c576a 100644
+--- a/uboot-mtk-20230718-09eda825/failsafe/Kconfig
++++ b/uboot-mtk-20230718-09eda825/failsafe/Kconfig
+@@ -8,3 +8,12 @@ config WEBUI_FAILSAFE
+ 	default n
+ 	help
+ 	  Enable Web based failsafe UI
++
++config WEBUI_DHCP_SERVER
++	bool "Enable DHCP server in Failsafe Web UI"
++	depends on WEBUI_FAILSAFE
++	default n
++	help
++	  Serve temporary IPv4 leases while the Web failsafe is running.
++	  This allows a directly connected recovery computer to obtain an
++	  address without manual network configuration.
+diff --git a/uboot-mtk-20230718-09eda825/failsafe/Makefile b/uboot-mtk-20230718-09eda825/failsafe/Makefile
+index 6f353f5..7a61781 100644
+--- a/uboot-mtk-20230718-09eda825/failsafe/Makefile
++++ b/uboot-mtk-20230718-09eda825/failsafe/Makefile
+@@ -5,5 +5,6 @@ ifeq ($(CONFIG_SPL_BUILD),)
+ obj-y += fsdata/
+ 
+ obj-y += fs.o failsafe.o
++obj-$(CONFIG_WEBUI_DHCP_SERVER) += dhcpd.o
+ 
+ endif
+diff --git a/uboot-mtk-20230718-09eda825/failsafe/failsafe.c b/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
+index 9d18f4a..b723a0e 100644
+--- a/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
++++ b/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
+@@ -20,6 +20,7 @@
+ 
+ #include "../board/mediatek/common/boot_helper.h"
+ #include "fs.h"
++#include "dhcpd.h"
+ 
+ static u32 upload_data_id;
+ static const void *upload_data;
+@@ -409,7 +410,13 @@ int start_web_failsafe(void)
+ 	httpd_register_uri_handler(inst, "/version", &version_handler, NULL);
+ 	httpd_register_uri_handler(inst, "", &not_found_handler, NULL);
+ 
++#ifdef CONFIG_WEBUI_DHCP_SERVER
++	failsafe_dhcpd_start();
++#endif
+ 	net_loop(MTK_TCP);
++#ifdef CONFIG_WEBUI_DHCP_SERVER
++	failsafe_dhcpd_stop();
++#endif
+ 
+ 	return 0;
+ }
+diff --git a/uboot-mtk-20230718-09eda825/net/mtk_tcp.c b/uboot-mtk-20230718-09eda825/net/mtk_tcp.c
+index 52ec14f..e708cde 100644
+--- a/uboot-mtk-20230718-09eda825/net/mtk_tcp.c
++++ b/uboot-mtk-20230718-09eda825/net/mtk_tcp.c
+@@ -82,9 +82,14 @@ static LIST_HEAD(conn_head);
+ 
+ static int mtk_tcp_stop;
+ 
++void __weak mtk_tcp_start_hook(void)
++{
++}
++
+ void mtk_tcp_start(void)
+ {
+ 	mtk_tcp_stop = 0;
++	mtk_tcp_start_hook();
+ }
+ 
+ static struct mtk_tcp_listen *mtk_tcp_listen_find(__be16 port)
