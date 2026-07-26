@@ -33,6 +33,12 @@ grep -Fqx "CONFIG_MTDPARTS_DEFAULT=\"$EXPECTED_MTDPARTS\"" "$UBOOT_CFG" ||
 grep -Fq 'Qihoo 360T7 Recovery' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery overlay was not applied"
+grep -Fq "upload('fip')" \
+	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/uboot.html" ||
+	fail "U-Boot update page does not use the upstream FIP upload handler"
+grep -Fq '构建日期：2026-07-26' \
+	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/uboot.html" ||
+	fail "U-Boot update page has an unexpected build date"
 strings "$UBOOT_BIN" | grep -Fq \
 	'DHCP server: 192.168.1.100-192.168.1.199' ||
 	fail "failsafe DHCP server was not linked into U-Boot"
@@ -60,6 +66,8 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "fip_size=$FIP_SIZE"
 	echo "mtdparts=$EXPECTED_MTDPARTS"
 	echo "web_overlay=Qihoo 360T7 Recovery"
+	echo "web_uboot_update=enabled"
+	echo "build_date=2026-07-26"
 } > "$DIST_DIR/validation-report.txt"
 
 {
@@ -68,6 +76,7 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "uboot_tree=uboot-mtk-20230718-09eda825"
 	echo "atf_tree=atf-20240117-bacca82a8"
 	echo "build_command=SOC=mt7981 BOARD=360t7 FIXED_MTDPARTS=1 ./build.sh"
+	echo "build_date=${BUILD_DATE:-unknown}"
 	echo "source_date_epoch=${SOURCE_DATE_EPOCH:-unknown}"
 	echo "kbuild_build_user=${KBUILD_BUILD_USER:-unknown}"
 	echo "kbuild_build_host=${KBUILD_BUILD_HOST:-unknown}"

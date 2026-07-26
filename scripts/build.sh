@@ -36,8 +36,10 @@ for patch in "$PROJECT_DIR"/patches/*.patch; do
 	git -C "$SOURCE_DIR" apply "$patch"
 done
 
-SOURCE_DATE_EPOCH="$(git -C "$SOURCE_DIR" show -s --format=%ct HEAD)"
+BUILD_DATE="2026-07-26"
+SOURCE_DATE_EPOCH="1785024000"
 export SOURCE_DATE_EPOCH
+export BUILD_DATE
 export KBUILD_BUILD_USER="360t7-builder"
 export KBUILD_BUILD_HOST="github-actions"
 

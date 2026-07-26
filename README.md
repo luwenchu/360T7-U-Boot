@@ -7,6 +7,9 @@ from `hanwckf/bl-mt798x`.
 The Web recovery interface is restyled for the 360T7 while retaining the
 upstream MediaTek upload, image validation and flashing handlers. No IPQ60xx
 hardware code, NOR partition table, ART/CDT handler, or binary is used.
+The interface provides dedicated pages for firmware update, initramfs RAM boot
+and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
+upload path and writes the fixed-layout `fip` partition.
 
 While Web recovery is active, a minimal DHCPv4 server automatically assigns
 temporary addresses from `192.168.1.100-192.168.1.199`. The recovery Web
@@ -48,9 +51,10 @@ sparse checkout, applies the local Web overlay and builds only:
 SOC=mt7981 BOARD=360t7 FIXED_MTDPARTS=1 ./build.sh
 ```
 
-`SOURCE_DATE_EPOCH`, `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST` are fixed from
-the pinned upstream commit so repeated builds of the same repository commit
-produce the same FIP hash.
+`SOURCE_DATE_EPOCH` is fixed to `2026-07-26 00:00:00 UTC`; the visible Web
+build date is also `2026-07-26`. `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST`
+remain fixed so repeated builds of the same repository commit produce the same
+FIP hash.
 
 ## Flashing warning
 

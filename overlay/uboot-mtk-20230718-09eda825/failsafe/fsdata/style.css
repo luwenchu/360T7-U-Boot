@@ -196,6 +196,15 @@ select {
 	font-weight: bold;
 }
 
+.danger-confirm {
+	background: #fff2f0;
+	border-color: #e2aaa5;
+}
+
+.danger-confirm p {
+	color: #a8322b;
+}
+
 .notice,
 .i {
 	margin-top: 24px;
@@ -209,6 +218,11 @@ select {
 .w {
 	background: #fff8df;
 	border-color: #e5cf78;
+}
+
+.notice.critical {
+	background: #fff0ee;
+	border-color: #df9b96;
 }
 
 .e {
@@ -231,7 +245,7 @@ ul {
 	color: #bd342c;
 }
 
-#version {
+.version-footer {
 	padding: 0 16px 24px;
 	color: #6c7882;
 	text-align: center;
