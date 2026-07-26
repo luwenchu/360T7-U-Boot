@@ -1,0 +1,57 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Qihoo 360T7 RAM Boot</title>
+		<link rel="stylesheet" href="/style.css">
+		<script src="/main.js"></script>
+	</head>
+	<body onload="startup()">
+		<header class="topbar">
+			<div class="brand">
+				<span class="brand-mark">360</span>
+				<span>Qihoo 360T7 Recovery</span>
+			</div>
+			<div class="device">MT7981 / RAM boot</div>
+		</header>
+		<main id="m">
+			<nav class="tabs" aria-label="恢复功能">
+				<a href="/">固件更新</a>
+				<a class="active" href="/initramfs.html">RAM 启动</a>
+			</nav>
+			<section class="content">
+				<p class="eyebrow">INITRAMFS RECOVERY</p>
+				<h1>临时启动恢复系统</h1>
+				<p id="hint" class="lead">
+					上传适用于 Qihoo 360T7 的 initramfs FIT 镜像。该操作从内存启动，不写入 NAND。
+				</p>
+				<form id="form" class="upload-panel">
+					<label class="file-label" for="file">选择 initramfs 镜像</label>
+					<input id="file" type="file" name="initramfs">
+					<input class="button" type="button" value="上传并校验" onclick="upload('initramfs')">
+				</form>
+				<div class="progress-wrap">
+					<div class="bar" id="bar" style="display: none; --percent: 0;"></div>
+				</div>
+				<div class="file-info">
+					<div id="size" style="display: none;">Size: xxxx</div>
+					<div id="md5" style="display: none;">MD5: xxxx</div>
+					<div id="mtd" style="display: none;">MTD layout: xxxx</div>
+				</div>
+				<div id="upgrade" class="confirm" style="display: none;">
+					<p>镜像校验通过，可以从内存启动。</p>
+					<button class="button" onclick="location = '/booting.html'">开始启动</button>
+				</div>
+				<div class="notice">
+					<strong>恢复模式</strong>
+					<ul>
+						<li>RAM 启动不会修改 NAND 中的 BL2、FIP、Factory 或系统分区。</li>
+						<li>重启后仍会回到 NAND 中原有的引导和固件。</li>
+					</ul>
+				</div>
+			</section>
+		</main>
+		<footer id="version"></footer>
+	</body>
+</html>

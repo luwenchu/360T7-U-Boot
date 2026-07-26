@@ -1,0 +1,47 @@
+name: Build Qihoo 360T7 U-Boot FIP
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout wrapper repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential device-tree-compiler flex \
+            gcc-aarch64-linux-gnu git libssl-dev python3 \
+            python3-pyelftools swig
+
+      - name: Build 360T7 fixed-parts FIP
+        run: sh ./scripts/build.sh
+
+      - name: Display validation
+        run: |
+          cat dist/validation-report.txt
+          cat dist/build-metadata.txt
+          cat dist/SHA256SUMS
+          if [ -f dist/fiptool-info.txt ]; then
+            cat dist/fiptool-info.txt
+          fi
+
+      - name: Upload unflashed test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 360t7-uboot-fip-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

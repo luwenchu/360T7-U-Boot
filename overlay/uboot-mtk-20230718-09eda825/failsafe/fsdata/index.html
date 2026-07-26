@@ -1,0 +1,63 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Qihoo 360T7 Recovery</title>
+		<link rel="stylesheet" href="/style.css">
+		<script src="/main.js"></script>
+	</head>
+	<body onload="startup()">
+		<header class="topbar">
+			<div class="brand">
+				<span class="brand-mark">360</span>
+				<span>Qihoo 360T7 Recovery</span>
+			</div>
+			<div class="device">MT7981 / SPI-NAND / NMBM</div>
+		</header>
+		<main id="m">
+			<nav class="tabs" aria-label="恢复功能">
+				<a class="active" href="/">固件更新</a>
+				<a href="/initramfs.html">RAM 启动</a>
+			</nav>
+			<section class="content">
+				<p class="eyebrow">FIRMWARE UPDATE</p>
+				<h1>刷入 360T7 固件</h1>
+				<p id="hint" class="lead">
+					仅选择适用于 Qihoo 360T7 固定分区布局的固件。上传后请核对文件大小和 MD5，再执行写入。
+				</p>
+				<form id="form" class="upload-panel">
+					<div id="mtd_layout" class="layout-option" style="display: none;">
+						<div id="current_mtd_layout"></div>
+						<label for="mtd_layout_label">MTD 布局</label>
+						<select id="mtd_layout_label" name="mtd_layout_label"></select>
+					</div>
+					<label class="file-label" for="file">选择固件文件</label>
+					<input id="file" type="file" name="firmware">
+					<input class="button" type="button" value="上传并校验" onclick="upload('firmware')">
+				</form>
+				<div class="progress-wrap">
+					<div class="bar" id="bar" style="display: none; --percent: 0;"></div>
+				</div>
+				<div class="file-info">
+					<div id="size" style="display: none;">Size: xxxx</div>
+					<div id="md5" style="display: none;">MD5: xxxx</div>
+					<div id="mtd" style="display: none;">MTD layout: xxxx</div>
+				</div>
+				<div id="upgrade" class="confirm" style="display: none;">
+					<p>信息确认无误后再开始写入。</p>
+					<button class="button danger" onclick="location = '/flashing.html'">开始更新</button>
+				</div>
+				<div class="notice warning">
+					<strong>重要提示</strong>
+					<ul>
+						<li>写入过程中不要断电、拔网线或关闭浏览器。</li>
+						<li>本页面不会把 IPQ60xx 的 ART、CDT 或 NOR 分区操作用于本机。</li>
+						<li>错误的 FIP、分区布局或机型仍可能导致设备无法启动。</li>
+					</ul>
+				</div>
+			</section>
+		</main>
+		<footer id="version"></footer>
+	</body>
+</html>
