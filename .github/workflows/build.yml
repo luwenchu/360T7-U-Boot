@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout wrapper repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Install build dependencies
         run: |
@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Upload unflashed test artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: 360t7-uboot-fip-${{ github.sha }}
           path: dist/
