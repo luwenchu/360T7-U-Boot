@@ -1,37 +1,41 @@
 diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
-index 7ee1768..0314ea2 100644
+index 6db2abb4ca721e3727907e4a59137e69f9ac6bd5..ab242251c3e69153234b7057b8889d313def0eb3 100644
 --- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
 +++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
-@@ -653,6 +653,27 @@ static int ubi_dual_boot(struct mtd_info *mtd)
- 	return ret;
+@@ -1037,4 +1037,32 @@ static int ubi_dual_boot(struct mtd_info *mtd)
  }
  
 +static int ubi_set_separate_rootfs_bootargs(void)
 +{
++	const char *bootargs = env_get("bootargs");
++	const char *rootargs =
++		"ubi.mtd=" PART_UBI_NAME " root=ubi0:" PART_ROOTFS_NAME
++		" rootfstype=squashfs rootwait";
++	char *updated_bootargs;
++	size_t updated_len;
 +	int ret;
 +
-+	bootargs_reset();
++	if (bootargs && strstr(bootargs, "root=ubi0:" PART_ROOTFS_NAME))
++		return 0;
 +
-+	ret = bootargs_set("ubi.mtd", PART_UBI_NAME);
-+	if (ret)
-+		return ret;
++	if (!bootargs || !*bootargs)
++		return env_set("bootargs", rootargs);
 +
-+	ret = bootargs_set("root", "ubi0:" PART_ROOTFS_NAME);
-+	if (ret)
-+		return ret;
++	updated_len = strlen(bootargs) + strlen(rootargs) + 2;
++	updated_bootargs = malloc(updated_len);
++	if (!updated_bootargs)
++		return -ENOMEM;
 +
-+	ret = bootargs_set("rootfstype", "squashfs");
-+	if (ret)
-+		return ret;
++	snprintf(updated_bootargs, updated_len, "%s %s", bootargs, rootargs);
++	ret = env_set("bootargs", updated_bootargs);
++	free(updated_bootargs);
 +
-+	return bootargs_set("rootwait", NULL);
++	return ret;
 +}
 +
  static int boot_from_ubi(struct mtd_info *mtd)
  {
- 	ulong data_load_addr = CONFIG_SYS_LOAD_ADDR;
-@@ -662,7 +683,12 @@ static int boot_from_ubi(struct mtd_info *mtd)
- 		return ret;
+@@ -1047,6 +1075,11 @@ static int boot_from_ubi(struct mtd_info *mtd)
  
  	ret = read_ubi_volume(PART_KERNEL_NAME, (void *)data_load_addr, 0);
 -	if (ret == ENODEV)
