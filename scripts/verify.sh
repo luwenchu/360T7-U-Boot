@@ -33,8 +33,6 @@ grep -qx 'CONFIG_WEBUI_DHCP_SERVER=y' "$UBOOT_CFG" ||
 	fail "failsafe DHCP server is not enabled"
 grep -Fqx "CONFIG_MTDPARTS_DEFAULT=\"$EXPECTED_MTDPARTS\"" "$UBOOT_CFG" ||
 	fail "fixed partition layout changed"
-grep -qx 'CONFIG_MEDIATEK_UBI_FIXED_MTDPARTS=y' "$UBOOT_FINAL_CFG" ||
-	fail "final U-Boot build does not use fixed UBI partitions"
 grep -qx 'CONFIG_MTK_FIXED_MTD_MTDPARTS=y' "$UBOOT_FINAL_CFG" ||
 	fail "final U-Boot build does not enforce fixed MTD partitions"
 grep -Fq 'ubi_set_separate_rootfs_bootargs' "$MTD_HELPER" ||
@@ -71,6 +69,8 @@ strings "$UBOOT_BIN" | grep -Fq \
 strings "$UBOOT_BIN" | grep -Fq \
 	'Factory MAC: using %pM for Web recovery' ||
 	fail "Factory MAC initialization was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq "$EXPECTED_MTDPARTS" ||
+	fail "fixed MTD partition layout was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'ubi0:rootfs' ||
 	fail "separate rootfs UBI boot arguments were not linked into U-Boot"
 
