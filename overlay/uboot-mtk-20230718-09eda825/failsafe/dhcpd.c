@@ -98,8 +98,10 @@ void failsafe_factory_mac_init(void)
 	}
 
 	buffer = malloc(read_size);
-	if (!buffer)
+	if (!buffer) {
+		put_mtd_device(mtd);
 		return;
+	}
 
 	ret = mtd_read(mtd, 0, read_size, &retlen, buffer);
 	if (ret || retlen < sizeof("lanMac=00:00:00:00:00:00") - 1)
@@ -127,6 +129,7 @@ void failsafe_factory_mac_init(void)
 
 out:
 	free(buffer);
+	put_mtd_device(mtd);
 }
 
 static const u8 *dhcpd_find_option(const u8 *options, size_t len, u8 code,

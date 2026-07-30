@@ -39,6 +39,14 @@ nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),
 108M(ubi),1M(stock-config),512k(stock-factory),4M(stock-log)
 ```
 
+The boot path supports both the current single `fit` UBI volume and the
+legacy separate `kernel`/`rootfs` volume layout. When separate volumes are
+present, U-Boot supplies the following arguments before booting the kernel:
+
+```text
+ubi.mtd=ubi root=ubi0:rootfs rootfstype=squashfs rootwait
+```
+
 ## Build
 
 On Ubuntu or Debian:
