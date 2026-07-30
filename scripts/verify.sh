@@ -73,6 +73,10 @@ strings "$UBOOT_BIN" | grep -Fq "$EXPECTED_MTDPARTS" ||
 	fail "fixed MTD partition layout was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'ubi0:rootfs' ||
 	fail "separate rootfs UBI boot arguments were not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'fail:no-supported-file-field' ||
+	fail "detailed Web upload errors were not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'failed:write:%d' ||
+	fail "detailed Web write errors were not linked into U-Boot"
 
 FIP_SIZE="$(wc -c < "$FIP" | tr -d ' ')"
 test "$FIP_SIZE" -gt 262144 || fail "FIP is unexpectedly small"

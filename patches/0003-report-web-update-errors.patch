@@ -1,0 +1,113 @@
+diff --git a/uboot-mtk-20230718-09eda825/failsafe/failsafe.c b/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
+index 61aba9f5f7b2ac364fc680af28e418ac52b98d29..dddbb57d87a75e3fb45f2518547d67052f03f018 100644
+--- a/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
++++ b/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
+@@ -110,5 +110,5 @@ static void upload_handler(enum httpd_uri_handler_status status,
+ #endif
+ 	u8 md5_sum[16];
+-	int i;
++	int i, ret;
+ 
+ 	static char hexchars[] = "0123456789abcdef";
+@@ -121,4 +121,5 @@ static void upload_handler(enum httpd_uri_handler_status status,
+ 	response->info.connection_close = 1;
+ 	response->info.content_type = "text/plain";
++	snprintf(resp, sizeof(resp), "fail:no-supported-file-field");
+ 
+ #ifdef CONFIG_MTK_BOOTMENU_MMC
+@@ -133,6 +134,9 @@ static void upload_handler(enum httpd_uri_handler_status status,
+ 	if (fw) {
+ 		fw_type = FW_TYPE_FIP;
+-		if (failsafe_validate_image(fw->data, fw->size, fw_type))
++		ret = failsafe_validate_image(fw->data, fw->size, fw_type);
++		if (ret) {
++			snprintf(resp, sizeof(resp), "fail:fip-validation:%d", ret);
+ 			goto fail;
++		}
+ 		goto done;
+ 	}
+@@ -141,6 +145,9 @@ static void upload_handler(enum httpd_uri_handler_status status,
+ 	if (fw) {
+ 		fw_type = FW_TYPE_BL2;
+-		if (failsafe_validate_image(fw->data, fw->size, fw_type))
++		ret = failsafe_validate_image(fw->data, fw->size, fw_type);
++		if (ret) {
++			snprintf(resp, sizeof(resp), "fail:bl2-validation:%d", ret);
+ 			goto fail;
++		}
+ 		goto done;
+ 	}
+@@ -149,6 +156,10 @@ static void upload_handler(enum httpd_uri_handler_status status,
+ 	if (fw) {
+ 		fw_type = FW_TYPE_FW;
+-		if (failsafe_validate_image(fw->data, fw->size, fw_type))
++		ret = failsafe_validate_image(fw->data, fw->size, fw_type);
++		if (ret) {
++			snprintf(resp, sizeof(resp),
++				 "fail:firmware-validation:%d", ret);
+ 			goto fail;
++		}
+ #ifdef CONFIG_MEDIATEK_MULTI_MTD_LAYOUT
+ 		mtd = httpd_request_find_value(request, "mtd_layout");
+@@ -160,11 +171,15 @@ static void upload_handler(enum httpd_uri_handler_status status,
+ 	if (fw) {
+ 		fw_type = FW_TYPE_INITRD;
+-		if (fdt_check_header(fw->data))
++		ret = fdt_check_header(fw->data);
++		if (ret) {
++			snprintf(resp, sizeof(resp),
++				 "fail:initramfs-validation:%d", ret);
+ 			goto fail;
++		}
+ 		goto done;
+ 	}
+ 
+ fail:
+-	response->data = "fail";
++	response->data = resp;
+ 	response->size = strlen(response->data);
+ 	return;
+@@ -271,6 +286,9 @@ static void result_handler(enum httpd_uri_handler_status status,
+ 		if (!st->ret)
+ 			response->data = "success";
+-		else
+-			response->data = "failed";
++		else {
++			snprintf(st->buf, sizeof(st->buf), "failed:write:%d",
++				 st->ret);
++			response->data = st->buf;
++		}
+ 
+ 		response->size = strlen(response->data);
+diff --git a/uboot-mtk-20230718-09eda825/failsafe/fsdata/flashing.html b/uboot-mtk-20230718-09eda825/failsafe/fsdata/flashing.html
+index dab7076e3641198f72ff0419117d89e214a4b4a6..dae01818040d26010c1fa7cb6995357fe3425fe6 100644
+--- a/uboot-mtk-20230718-09eda825/failsafe/fsdata/flashing.html
++++ b/uboot-mtk-20230718-09eda825/failsafe/fsdata/flashing.html
+@@ -13,6 +13,8 @@
+ 					url: '/result',
+ 					done: function(response) {
+-						if (response == 'failed') {
+-							location = '/fail.html'
++						if (response.indexOf('failed') === 0) {
++							document.getElementById('title').innerHTML = 'UPDATE FAILED'
++							document.getElementById('info').textContent =
++								'Update failed: ' + response
+ 							return
+ 						}
+diff --git a/uboot-mtk-20230718-09eda825/failsafe/fsdata/main.js b/uboot-mtk-20230718-09eda825/failsafe/fsdata/main.js
+index d2eb22bc408ab9cdc5363c52efdeb7366b9f2a3e..68d8337fe40002e462265f15e3a0be37b7cc40ad 100644
+--- a/uboot-mtk-20230718-09eda825/failsafe/fsdata/main.js
++++ b/uboot-mtk-20230718-09eda825/failsafe/fsdata/main.js
+@@ -93,6 +93,10 @@ function upload(name) {
+         data: form,
+         done: function(resp) {
+-            if (resp == 'fail') {
+-                location = '/fail.html';
++            if (resp.indexOf('fail') === 0) {
++                document.getElementById('form').style.display = '';
++                document.getElementById('hint').style.display = '';
++                document.getElementById('hint').textContent =
++                    'Upload failed: ' + resp;
++                document.getElementById('bar').style.display = 'none';
+             } else {
+                 const info = resp.split(' ');
