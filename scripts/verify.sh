@@ -59,6 +59,9 @@ grep -Fq '构建日期：2026-07-26' \
 strings "$UBOOT_BIN" | grep -Fq \
 	'DHCP server: 192.168.1.100-192.168.1.199' ||
 	fail "failsafe DHCP server was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq \
+	'Factory MAC: using %pM for Web recovery' ||
+	fail "Factory MAC initialization was not linked into U-Boot"
 
 FIP_SIZE="$(wc -c < "$FIP" | tr -d ' ')"
 test "$FIP_SIZE" -gt 262144 || fail "FIP is unexpectedly small"
@@ -79,6 +82,7 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "nmbm=enabled"
 	echo "fixed_mtdparts=enabled"
 	echo "failsafe_dhcp_server=192.168.1.100-192.168.1.199"
+	echo "failsafe_mac_source=stock-factory lanMac"
 	echo "fip_partition_limit=$FIP_LIMIT"
 	echo "fip_size=$FIP_SIZE"
 	echo "mtdparts=$EXPECTED_MTDPARTS"

@@ -18,6 +18,11 @@ temporary addresses from `192.168.1.100-192.168.1.199`. The recovery Web
 address remains fixed at `192.168.1.1`, so it is still reachable with a manual
 computer address if DHCP negotiation fails.
 
+Before the recovery network starts, U-Boot reads `lanMac` from the
+device-specific `stock-factory` partition and uses it as `ethaddr`. This avoids
+the repeatable pseudo-random fallback MAC appearing on multiple routers. The
+value is used in memory and is not copied into another device's Factory data.
+
 ## Output
 
 The GitHub Actions build produces:

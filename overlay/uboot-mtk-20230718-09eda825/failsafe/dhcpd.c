@@ -7,7 +7,10 @@
  */
 
 #include <common.h>
+#include <env.h>
 #include <net.h>
+#include <linux/err.h>
+#include <linux/mtd/mtd.h>
 #include <linux/types.h>
 
 #include "dhcpd.h"
@@ -74,6 +77,57 @@ struct dhcpd_lease {
 static struct dhcpd_lease leases[DHCPD_MAX_LEASES];
 static u8 next_host = DHCPD_POOL_FIRST;
 static bool dhcpd_enabled;
+
+void failsafe_factory_mac_init(void)
+{
+	struct mtd_info *mtd;
+	size_t retlen;
+	u8 mac[ARP_HLEN];
+	char mac_text[18];
+	char *buffer;
+	char *value;
+	size_t read_size = 0x4000;
+	size_t i;
+	int ret;
+
+	mtd_probe_devices();
+	mtd = get_mtd_device_nm("stock-factory");
+	if (IS_ERR(mtd)) {
+		printf("Factory MAC: stock-factory partition not found\n");
+		return;
+	}
+
+	buffer = malloc(read_size);
+	if (!buffer)
+		return;
+
+	ret = mtd_read(mtd, 0, read_size, &retlen, buffer);
+	if (ret || retlen < sizeof("lanMac=00:00:00:00:00:00") - 1)
+		goto out;
+
+	value = NULL;
+	for (i = 0; i + sizeof("lanMac=00:00:00:00:00:00") - 1 <= retlen;
+	     i++) {
+		if (!memcmp(buffer + i, "lanMac=", sizeof("lanMac=") - 1)) {
+			value = buffer + i + sizeof("lanMac=") - 1;
+			break;
+		}
+	}
+	if (!value)
+		goto out;
+
+	memcpy(mac_text, value, sizeof(mac_text) - 1);
+	mac_text[sizeof(mac_text) - 1] = 0;
+	string_to_enetaddr(mac_text, mac);
+	if (!is_valid_ethaddr(mac))
+		goto out;
+
+	eth_env_set_enetaddr("ethaddr", mac);
+	printf("Factory MAC: using %pM for Web recovery\n", mac);
+
+out:
+	free(buffer);
+}
 
 static const u8 *dhcpd_find_option(const u8 *options, size_t len, u8 code,
 				   u8 *option_len)
