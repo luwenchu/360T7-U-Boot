@@ -1,0 +1,98 @@
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/bootmenu_mtd.c b/uboot-mtk-20230718-09eda825/board/mediatek/common/bootmenu_mtd.c
+index 7f7cf27b9..2711f8523 100644
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/common/bootmenu_mtd.c
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/bootmenu_mtd.c
+@@ -287,8 +287,8 @@ static int write_firmware(void *priv, const struct data_part_entry *dpe,
+ 	if (!ret)
+ 		return 0;
+ 
+-	cprintln(ERROR, "*** Image not supported! ***");
+-	return -ENOTSUPP;
++	cprintln(ERROR, "*** Firmware write failed, err = %d ***", ret);
++	return ret;
+ }
+ 
+ static int write_flash_image(void *priv, const struct data_part_entry *dpe,
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+index 7832790ef..78cd102af 100644
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+@@ -34,6 +34,7 @@
+ #define PART_KERNEL_NAME	"kernel"
+ #define PART_ROOTFS_NAME	"rootfs"
+ #define PART_ROOTFS_DATA_NAME	"rootfs_data"
++#define SQUASHFS_MAGIC		0x73717368
+ 
+ #ifdef CONFIG_CMD_UBI
+ struct ubi_image_read_priv {
+@@ -774,9 +775,15 @@ static int write_ubi1_tar_image(const void *data, size_t size,
+ static int write_ubi2_tar_image(const void *data, size_t size,
+ 				struct mtd_info *mtd)
+ {
++	static const char board_control[] = "BOARD=qihoo_360t7\n";
+ 	const char *kernel_part, *rootfs_part;
+ 	const void *kernel_data, *rootfs_data;
++	struct tar_file_record file;
++	struct tar_parse_ctx ctx;
+ 	size_t kernel_size, rootfs_size;
++	bool board_matches = false;
++	const char *basename;
++	u32 rootfs_magic;
+ 	u32 slot;
+ 	int ret;
+ 
+@@ -800,11 +807,53 @@ static int write_ubi2_tar_image(const void *data, size_t size,
+ 	if (ret)
+ 		return ret;
+ 
++	if (genimg_get_format(kernel_data) != IMAGE_FORMAT_FIT) {
++		cprintln(ERROR, "*** Sysupgrade kernel is not a FIT image ***");
++		return -EBADMSG;
++	}
++
++	if (rootfs_size < sizeof(rootfs_magic)) {
++		cprintln(ERROR, "*** Sysupgrade root is not SquashFS ***");
++		return -EBADMSG;
++	}
++
++	memcpy(&rootfs_magic, rootfs_data, sizeof(rootfs_magic));
++	if (rootfs_magic != SQUASHFS_MAGIC) {
++		cprintln(ERROR, "*** Sysupgrade root is not SquashFS ***");
++		return -EBADMSG;
++	}
++
++	tar_ctx_init(&ctx, data, size);
++	while (!tar_ctx_next_file(&ctx, &file)) {
++		if (file.type != TAR_FT_REGULAR)
++			continue;
++
++		basename = strrchr(file.name, '/');
++		if (!basename || strcmp(basename + 1, "CONTROL"))
++			continue;
++
++		if (file.size == sizeof(board_control) - 1 &&
++		    !memcmp(file.data, board_control,
++			    sizeof(board_control) - 1))
++			board_matches = true;
++		break;
++	}
++
++	if (!board_matches) {
++		cprintln(ERROR, "*** Sysupgrade image is not for qihoo_360t7 ***");
++		return -ENODEV;
++	}
++
+ 	ret = mount_ubi(mtd, !IS_ENABLED(CONFIG_MTK_DUAL_BOOT));
+ 	if (ret)
+ 		return ret;
+ 
+ #ifndef CONFIG_MTK_DUAL_BOOT
+-	/* Remove this volume first in case of no enough PEBs */
++	/*
++	 * The combined FIT and standard sysupgrade layouts are mutually
++	 * exclusive. The complete TAR was validated above, so release the
++	 * old FIT and overlay volumes before creating kernel/rootfs.
++	 */
++	remove_ubi_volume(PART_FIT_NAME);
+ 	remove_ubi_volume(PART_ROOTFS_DATA_NAME);
+ #endif

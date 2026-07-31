@@ -44,10 +44,19 @@ The same boundaries are embedded as fixed partitions in the 360T7 U-Boot
 device tree. This keeps the `ubi` MTD partition available even if runtime
 `mtdparts` environment parsing is unavailable or contains stale data.
 
-The boot path prefers the current single `fit` UBI volume. A raw FIT uploaded
-through Firmware update removes legacy `kernel` and `rootfs` volumes before it
-writes `fit` and recreates `rootfs_data`. The separate layout remains only as
-a boot fallback for recovery. When that fallback is used, U-Boot supplies:
+Firmware update supports two content-validated formats:
+
+- a combined FIT image, including a byte-identical `.bin` copy;
+- a standard `qihoo_360t7` squashfs sysupgrade tar `.bin` containing a FIT
+  `kernel`, SquashFS `root`, and `CONTROL` with `BOARD=qihoo_360t7`.
+
+The layouts are mutually exclusive. A combined FIT update removes `kernel` and
+`rootfs` before writing the single `fit` volume. A standard sysupgrade update
+validates the complete archive before removing `fit` and writing separate
+`kernel` and `rootfs` volumes. Both paths recreate `rootfs_data`.
+
+The boot path prefers `fit` when present and otherwise boots the separate
+`kernel`/`rootfs` layout with:
 
 ```text
 ubi.mtd=ubi root=ubi0:rootfs rootfstype=squashfs rootwait

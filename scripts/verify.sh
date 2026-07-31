@@ -61,6 +61,17 @@ grep -Fq 'remove_ubi_volume(PART_KERNEL_NAME)' "$MTD_HELPER" ||
 	fail "FIT Web upgrades do not remove the legacy kernel volume"
 grep -Fq 'remove_ubi_volume(PART_ROOTFS_NAME)' "$MTD_HELPER" ||
 	fail "FIT Web upgrades do not remove the legacy rootfs volume"
+grep -Fq 'BOARD=qihoo_360t7' "$MTD_HELPER" ||
+	fail "standard sysupgrade images are not restricted to the 360T7"
+grep -Fq 'Sysupgrade kernel is not a FIT image' "$MTD_HELPER" ||
+	fail "standard sysupgrade kernel validation is missing"
+grep -Fq 'Sysupgrade root is not SquashFS' "$MTD_HELPER" ||
+	fail "standard sysupgrade rootfs validation is missing"
+grep -Fq 'remove_ubi_volume(PART_FIT_NAME)' "$MTD_HELPER" ||
+	fail "standard sysupgrade does not remove the old combined FIT volume"
+grep -Fq 'Firmware write failed, err = %d' \
+	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/board/mediatek/common/bootmenu_mtd.c" ||
+	fail "firmware write errors are still collapsed to ENOTSUPP"
 grep -Fq 'label = "ubi";' "$BOARD_DTS" ||
 	fail "the board device tree does not define the raw UBI partition"
 grep -Fq 'reg = <0x0580000 0x6c00000>;' "$BOARD_DTS" ||
@@ -70,6 +81,15 @@ grep -Fq "Raw FIT upgrade requires the '%s' MTD partition" "$MTD_HELPER" ||
 grep -Fq 'Qihoo 360T7 Recovery' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery overlay was not applied"
+grep -Fq 'FIT + SYSUPGRADE' \
+	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
+	fail "Web recovery does not advertise both supported firmware formats"
+grep -Fq '支持 combined FIT BIN 和标准 qihoo_360t7 sysupgrade BIN' \
+	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
+	fail "Web recovery firmware format guidance is missing"
+grep -Fq '郑州子安信息科技 · 构建日期：2026-07-26' \
+	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
+	fail "company footer is missing from index.html"
 if grep -Fq 'IPQ60xx 的 ART、CDT 或 NOR 分区操作' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html"; then
 	fail "obsolete IPQ60xx Web warning is still present"
@@ -78,7 +98,7 @@ if grep -Fq '首次通过 U-Boot Web 刷入本仓库固件可能需要约 10 分
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html"; then
 	fail "obsolete first firmware flash duration warning is still present"
 fi
-for page in index.html initramfs.html uboot.html; do
+for page in initramfs.html uboot.html; do
 	grep -Fq '郑州子安信息科技 · 构建日期：2026-07-26' \
 		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
 		fail "company footer is missing from $page"
@@ -103,6 +123,10 @@ strings "$UBOOT_BIN" | grep -Fq "$EXPECTED_MTDPARTS" ||
 	fail "fixed MTD partition layout was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'ubi0:rootfs' ||
 	fail "separate rootfs UBI boot arguments were not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'BOARD=qihoo_360t7' ||
+	fail "360T7 sysupgrade board validation was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'Sysupgrade root is not SquashFS' ||
+	fail "sysupgrade rootfs validation was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'fail:no-supported-file-field' ||
 	fail "detailed Web upload errors were not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'failed:write:%d' ||
@@ -134,6 +158,7 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "mtdparts=$EXPECTED_MTDPARTS"
 	echo "web_overlay=Qihoo 360T7 Recovery"
 	echo "web_uboot_update=enabled"
+	echo "web_firmware_formats=combined_fit,qihoo_360t7_sysupgrade_tar"
 	echo "web_footer=Zhengzhou_Zian_Information_Technology"
 	echo "build_date=2026-07-26"
 } > "$DIST_DIR/validation-report.txt"
