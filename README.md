@@ -11,7 +11,7 @@ hardware code, NOR partition table, ART/CDT handler, or binary is used.
 The interface provides dedicated pages for firmware update, initramfs RAM boot
 and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
 upload path and writes the fixed-layout `fip` partition.
-All three Web pages display the release marker `U-Boot v1.0.8` and use the
+All three Web pages display the release marker `U-Boot v1.0.9` and use the
 footer `郑州子安信息科技 · 构建日期：2026-07-31`. The release marker is static
 and intentionally separate from the upstream U-Boot version string so the
 installed recovery build can be identified without a serial console.
@@ -58,11 +58,17 @@ validates the complete archive before removing `fit` and writing separate
 `kernel` and `rootfs` volumes. Both paths recreate `rootfs_data`.
 
 The boot path prefers `fit` when present and otherwise boots the separate
-`kernel`/`rootfs` layout with:
+`kernel`/`rootfs` layout by exposing the SquashFS root volume through
+`ubiblock`. U-Boot reads the actual `rootfs` UBI volume ID and generates:
 
 ```text
-ubi.mtd=ubi root=ubi0:rootfs rootfstype=squashfs rootwait
+ubi.mtd=ubi ubi.block=0,rootfs
+root=/dev/ubiblock0_<rootfs-volume-id> rootfstype=squashfs rootwait
 ```
+
+The boot argument merger replaces stale `ubi.mtd`, `ubi.block`, `root`,
+`rootfstype`, and `rootwait` entries instead of appending a second conflicting
+root device.
 
 Some third-party 360T7 images, including the tested sagehou build, enable NMBM
 in their Linux device tree even though this U-Boot stores UBI in raw

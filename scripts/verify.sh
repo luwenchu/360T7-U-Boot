@@ -60,6 +60,12 @@ grep -qx 'CONFIG_MTK_FIXED_MTD_MTDPARTS=y' "$UBOOT_FINAL_CFG" ||
 	fail "final U-Boot build does not enforce fixed MTD partitions"
 grep -Fq 'ubi_set_separate_rootfs_bootargs' "$MTD_HELPER" ||
 	fail "separate kernel/rootfs boot argument support is missing"
+grep -Fq '{ "ubi.block", "0," PART_ROOTFS_NAME }' "$MTD_HELPER" ||
+	fail "separate SquashFS root does not request an ubiblock device"
+grep -Fq '"/dev/ubiblock%u_%u"' "$MTD_HELPER" ||
+	fail "separate SquashFS root does not use the actual UBI volume ID"
+grep -Fq 'cmdline_merge(bootargs, rootargs' "$MTD_HELPER" ||
+	fail "separate root arguments do not replace stale boot arguments"
 grep -Fq 'read_ubi_volume(PART_FIT_NAME' "$MTD_HELPER" ||
 	fail "the FIT volume is not the primary boot target"
 grep -Fq 'remove_ubi_volume(PART_KERNEL_NAME)' "$MTD_HELPER" ||
@@ -102,9 +108,9 @@ grep -Fq 'FIT + SYSUPGRADE' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery does not advertise both supported firmware formats"
 for page in index.html initramfs.html uboot.html; do
-	grep -Fq 'U-Boot v1.0.8' \
+	grep -Fq 'U-Boot v1.0.9' \
 		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
-		fail "visible U-Boot v1.0.8 marker is missing from $page"
+		fail "visible U-Boot v1.0.9 marker is missing from $page"
 done
 grep -Fq '支持 combined FIT BIN 和标准 qihoo_360t7 sysupgrade BIN' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
@@ -143,8 +149,12 @@ strings "$UBOOT_BIN" | grep -Fq \
 	fail "Factory MAC initialization was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq "$EXPECTED_MTDPARTS" ||
 	fail "fixed MTD partition layout was not linked into U-Boot"
-strings "$UBOOT_BIN" | grep -Fq 'ubi0:rootfs' ||
-	fail "separate rootfs UBI boot arguments were not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq '0,rootfs' ||
+	fail "separate rootfs ubiblock arguments were not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq '/dev/ubiblock%u_%u' ||
+	fail "dynamic rootfs ubiblock path was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'Using SquashFS root volume %s as %s' ||
+	fail "separate SquashFS root diagnostic was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'BOARD=qihoo_360t7' ||
 	fail "360T7 sysupgrade board validation was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'Sysupgrade root is not SquashFS' ||
@@ -158,8 +168,8 @@ strings "$UBOOT_BIN" | grep -Fq \
 	fail "360T7 raw SPI-NAND Linux device-tree fixup was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'mediatek,bmt-max-reserved-blocks' ||
 	fail "NMBM property removal was not linked into U-Boot"
-strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.8' ||
-	fail "visible U-Boot v1.0.8 marker was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.9' ||
+	fail "visible U-Boot v1.0.9 marker was not linked into U-Boot"
 
 FIP_SIZE="$(wc -c < "$FIP" | tr -d ' ')"
 test "$FIP_SIZE" -gt 262144 || fail "FIP is unexpectedly small"
@@ -188,9 +198,10 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "web_overlay=Qihoo 360T7 Recovery"
 	echo "web_uboot_update=enabled"
 	echo "web_firmware_formats=combined_fit,qihoo_360t7_sysupgrade_tar"
-	echo "web_version=v1.0.8"
+	echo "web_version=v1.0.9"
 	echo "web_footer=Zhengzhou_Zian_Information_Technology"
 	echo "linux_dtb_fixup=qihoo_360t7_force_raw_spinand"
+	echo "separate_rootfs=dynamic_ubiblock_volume_id"
 	echo "build_date=2026-07-31"
 } > "$DIST_DIR/validation-report.txt"
 
