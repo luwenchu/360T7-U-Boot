@@ -1,0 +1,74 @@
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/mt7981/mt7981_rfb.c b/uboot-mtk-20230718-09eda825/board/mediatek/mt7981/mt7981_rfb.c
+index ce5eacf6a..d4314ef45 100644
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/mt7981/mt7981_rfb.c
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/mt7981/mt7981_rfb.c
+@@ -17,6 +17,46 @@ int board_init(void)
+ #define	MT7981_BOOT_EMMC	2
+ #define	MT7981_BOOT_SNFI_NAND	3 /* ToDo (treated as SD) */
+ 
++static int fixup_360t7_raw_spinand(void *blob)
++{
++	static const char * const nmbm_props[] = {
++		"mediatek,nmbm",
++		"mediatek,bmt-max-ratio",
++		"mediatek,bmt-max-reserved-blocks",
++	};
++	int node = -1;
++	int changed = 0;
++	int i, ret;
++
++	ret = fdt_node_check_compatible(blob, 0, "qihoo,360t7");
++	if (ret < 0)
++		return ret;
++	if (ret)
++		return 0;
++
++	while (1) {
++		node = fdt_node_offset_by_compatible(blob, node, "spi-nand");
++		if (node < 0)
++			break;
++
++		for (i = 0; i < ARRAY_SIZE(nmbm_props); i++) {
++			ret = fdt_delprop(blob, node, nmbm_props[i]);
++			if (!ret)
++				changed = 1;
++			else if (ret != -FDT_ERR_NOTFOUND)
++				return ret;
++		}
++	}
++
++	if (node != -FDT_ERR_NOTFOUND)
++		return node;
++
++	if (changed)
++		printf("360T7: forced Linux device tree to raw SPI-NAND\n");
++
++	return 0;
++}
++
+ int ft_system_setup(void *blob, struct bd_info *bd)
+ {
+ 	const u32 *media_handle_p;
+@@ -24,6 +64,10 @@ int ft_system_setup(void *blob, struct bd_info *bd)
+ 	const char *media;
+ 	u32 media_handle;
+ 
++	ret = fixup_360t7_raw_spinand(blob);
++	if (ret)
++		return ret;
++
+ 	switch ((readl(0x11d006f0) & 0xc0) >> 6) {
+ 	case MT7981_BOOT_NOR:
+ 		media = "rootdisk-nor";
+diff --git a/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig b/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
+index 6ef83b463..d108afff9 100644
+--- a/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
++++ b/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
+@@ -26,6 +26,7 @@ CONFIG_FIT=y
+ CONFIG_AUTOBOOT_MENU_SHOW=y
+ CONFIG_AUTOBOOT_MENU_MTK_SHOW=y
+ CONFIG_DEFAULT_FDT_FILE="mt7981-spim-nand-rfb"
++CONFIG_OF_SYSTEM_SETUP=y
+ CONFIG_LOGLEVEL=7
+ CONFIG_LOG=y
+ CONFIG_HUSH_PARSER=y

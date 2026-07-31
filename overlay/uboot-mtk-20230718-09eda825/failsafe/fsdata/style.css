@@ -42,6 +42,17 @@ body {
 	font-size: 16px;
 }
 
+.release-version {
+	padding: 2px 7px;
+	color: #d9ffe8;
+	background: #116c42;
+	border: 1px solid #49d17d;
+	border-radius: 3px;
+	font-size: 11px;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
 .device {
 	color: #b8c4ce;
 	font-size: 12px;

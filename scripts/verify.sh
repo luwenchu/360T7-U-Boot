@@ -8,6 +8,7 @@ UBOOT_CFG="$SOURCE_DIR/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfi
 UBOOT_FINAL_CFG="$SOURCE_DIR/uboot-mtk-20230718-09eda825/.config"
 UBOOT_BIN="$SOURCE_DIR/uboot-mtk-20230718-09eda825/u-boot.bin"
 MTD_HELPER="$SOURCE_DIR/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c"
+MT7981_BOARD="$SOURCE_DIR/uboot-mtk-20230718-09eda825/board/mediatek/mt7981/mt7981_rfb.c"
 BOARD_DTS="$SOURCE_DIR/uboot-mtk-20230718-09eda825/arch/arm/dts/mt7981-360t7.dts"
 UPSTREAM_COMMIT="$(git -C "$SOURCE_DIR" rev-parse HEAD)"
 EXPECTED_COMMIT="abe158087c80ed1896f2c281e2dae5e43ffbee41"
@@ -43,6 +44,10 @@ grep -qx 'CONFIG_MTD_SPI_NAND=y' "$UBOOT_CFG" ||
 	fail "SPI-NAND is not enabled"
 grep -qx 'CONFIG_WEBUI_DHCP_SERVER=y' "$UBOOT_CFG" ||
 	fail "failsafe DHCP server is not enabled"
+grep -qx 'CONFIG_OF_SYSTEM_SETUP=y' "$UBOOT_CFG" ||
+	fail "360T7 Linux device-tree fixups are not enabled"
+grep -qx 'CONFIG_OF_SYSTEM_SETUP=y' "$UBOOT_FINAL_CFG" ||
+	fail "final U-Boot build does not enable Linux device-tree fixups"
 grep -Fqx "CONFIG_MTDPARTS_DEFAULT=\"$EXPECTED_MTDPARTS\"" "$UBOOT_CFG" ||
 	fail "fixed partition layout changed"
 grep -Fqx "CONFIG_MTDIDS_DEFAULT=\"$EXPECTED_MTDIDS\"" "$UBOOT_CFG" ||
@@ -76,6 +81,18 @@ grep -Fq 'label = "ubi";' "$BOARD_DTS" ||
 	fail "the board device tree does not define the raw UBI partition"
 grep -Fq 'reg = <0x0580000 0x6c00000>;' "$BOARD_DTS" ||
 	fail "the board device tree raw UBI partition boundary changed"
+grep -Fq '"qihoo,360t7"' "$MT7981_BOARD" ||
+	fail "360T7 Linux device-tree fixup is not board restricted"
+for prop in \
+	'mediatek,nmbm' \
+	'mediatek,bmt-max-ratio' \
+	'mediatek,bmt-max-reserved-blocks'
+do
+	grep -Fq "\"$prop\"" "$MT7981_BOARD" ||
+		fail "360T7 Linux device-tree fixup is missing $prop"
+done
+grep -Fq '360T7: forced Linux device tree to raw SPI-NAND' "$MT7981_BOARD" ||
+	fail "360T7 raw SPI-NAND Linux device-tree fixup is missing"
 grep -Fq "Raw FIT upgrade requires the '%s' MTD partition" "$MTD_HELPER" ||
 	fail "missing explicit diagnostic for an unavailable raw UBI partition"
 grep -Fq 'Qihoo 360T7 Recovery' \
@@ -84,10 +101,15 @@ grep -Fq 'Qihoo 360T7 Recovery' \
 grep -Fq 'FIT + SYSUPGRADE' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery does not advertise both supported firmware formats"
+for page in index.html initramfs.html uboot.html; do
+	grep -Fq 'U-Boot v1.0.8' \
+		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
+		fail "visible U-Boot v1.0.8 marker is missing from $page"
+done
 grep -Fq '支持 combined FIT BIN 和标准 qihoo_360t7 sysupgrade BIN' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery firmware format guidance is missing"
-grep -Fq '郑州子安信息科技 · 构建日期：2026-07-26' \
+grep -Fq '郑州子安信息科技 · 构建日期：2026-07-31' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "company footer is missing from index.html"
 if grep -Fq 'IPQ60xx 的 ART、CDT 或 NOR 分区操作' \
@@ -99,7 +121,7 @@ if grep -Fq '首次通过 U-Boot Web 刷入本仓库固件可能需要约 10 分
 	fail "obsolete first firmware flash duration warning is still present"
 fi
 for page in initramfs.html uboot.html; do
-	grep -Fq '郑州子安信息科技 · 构建日期：2026-07-26' \
+	grep -Fq '郑州子安信息科技 · 构建日期：2026-07-31' \
 		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
 		fail "company footer is missing from $page"
 	if grep -Fq 'id="version"' \
@@ -110,7 +132,7 @@ done
 grep -Fq "upload('fip')" \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/uboot.html" ||
 	fail "U-Boot update page does not use the upstream FIP upload handler"
-grep -Fq '构建日期：2026-07-26' \
+grep -Fq '构建日期：2026-07-31' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/uboot.html" ||
 	fail "U-Boot update page has an unexpected build date"
 strings "$UBOOT_BIN" | grep -Fq \
@@ -131,6 +153,13 @@ strings "$UBOOT_BIN" | grep -Fq 'fail:no-supported-file-field' ||
 	fail "detailed Web upload errors were not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'failed:write:%d' ||
 	fail "detailed Web write errors were not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq \
+	'360T7: forced Linux device tree to raw SPI-NAND' ||
+	fail "360T7 raw SPI-NAND Linux device-tree fixup was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'mediatek,bmt-max-reserved-blocks' ||
+	fail "NMBM property removal was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.8' ||
+	fail "visible U-Boot v1.0.8 marker was not linked into U-Boot"
 
 FIP_SIZE="$(wc -c < "$FIP" | tr -d ' ')"
 test "$FIP_SIZE" -gt 262144 || fail "FIP is unexpectedly small"
@@ -159,8 +188,10 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "web_overlay=Qihoo 360T7 Recovery"
 	echo "web_uboot_update=enabled"
 	echo "web_firmware_formats=combined_fit,qihoo_360t7_sysupgrade_tar"
+	echo "web_version=v1.0.8"
 	echo "web_footer=Zhengzhou_Zian_Information_Technology"
-	echo "build_date=2026-07-26"
+	echo "linux_dtb_fixup=qihoo_360t7_force_raw_spinand"
+	echo "build_date=2026-07-31"
 } > "$DIST_DIR/validation-report.txt"
 
 {

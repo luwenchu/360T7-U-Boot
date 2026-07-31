@@ -11,8 +11,10 @@ hardware code, NOR partition table, ART/CDT handler, or binary is used.
 The interface provides dedicated pages for firmware update, initramfs RAM boot
 and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
 upload path and writes the fixed-layout `fip` partition.
-All three Web pages use the footer `郑州子安信息科技 · 构建日期：2026-07-26`
-and do not display the upstream U-Boot version string.
+All three Web pages display the release marker `U-Boot v1.0.8` and use the
+footer `郑州子安信息科技 · 构建日期：2026-07-31`. The release marker is static
+and intentionally separate from the upstream U-Boot version string so the
+installed recovery build can be identified without a serial console.
 
 While Web recovery is active, a minimal DHCPv4 server automatically assigns
 temporary addresses from `192.168.1.100-192.168.1.199`. The recovery Web
@@ -62,6 +64,14 @@ The boot path prefers `fit` when present and otherwise boots the separate
 ubi.mtd=ubi root=ubi0:rootfs rootfstype=squashfs rootwait
 ```
 
+Some third-party 360T7 images, including the tested sagehou build, enable NMBM
+in their Linux device tree even though this U-Boot stores UBI in raw
+SPI-NAND. Before starting a `qihoo,360t7` Linux image, U-Boot removes the
+`mediatek,nmbm`, `mediatek,bmt-max-ratio`, and
+`mediatek,bmt-max-reserved-blocks` properties from the final runtime device
+tree. The uploaded FIT or sysupgrade archive is not modified, and images whose
+device tree already uses raw SPI-NAND are unchanged.
+
 ## Build
 
 On Ubuntu or Debian:
@@ -81,8 +91,8 @@ sparse checkout, applies the local Web overlay and builds only:
 SOC=mt7981 BOARD=360t7 FIXED_MTDPARTS=1 ./build.sh
 ```
 
-`SOURCE_DATE_EPOCH` is fixed to `2026-07-26 00:00:00 UTC`; the visible Web
-build date is also `2026-07-26`. `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST`
+`SOURCE_DATE_EPOCH` is fixed to `2026-07-31 00:00:00 UTC`; the visible Web
+build date is also `2026-07-31`. `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST`
 remain fixed so repeated builds of the same repository commit produce the same
 FIP hash.
 
@@ -99,9 +109,10 @@ Do not write BL2, Factory, the whole NAND, or this FIP without:
 - an MT7981 DDR3 RAM-boot recovery path using `mtk_uartboot`;
 - confirmation that Linux exposes the same raw fixed layout shown above.
 
-This FIP is specifically intended to match the official ImmortalWrt
-`qihoo_360t7` raw SPI-NAND partition stack. Do not use it with an NMBM-based
-Linux device tree. The first hardware test should retain a working initramfs
+This FIP is specifically intended to keep the bootloader and Linux on the
+raw SPI-NAND address space. The runtime device-tree fixup adds compatibility
+for 360T7 images that were built with NMBM properties, but it still requires
+hardware validation. The first hardware test should retain a working initramfs
 RAM recovery path.
 
 ## Baseline
