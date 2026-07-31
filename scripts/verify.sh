@@ -8,6 +8,7 @@ UBOOT_CFG="$SOURCE_DIR/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfi
 UBOOT_FINAL_CFG="$SOURCE_DIR/uboot-mtk-20230718-09eda825/.config"
 UBOOT_BIN="$SOURCE_DIR/uboot-mtk-20230718-09eda825/u-boot.bin"
 MTD_HELPER="$SOURCE_DIR/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c"
+BOARD_DTS="$SOURCE_DIR/uboot-mtk-20230718-09eda825/arch/arm/dts/mt7981-360t7.dts"
 UPSTREAM_COMMIT="$(git -C "$SOURCE_DIR" rev-parse HEAD)"
 EXPECTED_COMMIT="abe158087c80ed1896f2c281e2dae5e43ffbee41"
 EXPECTED_MTDIDS='spi-nand0=spi-nand0'
@@ -60,6 +61,12 @@ grep -Fq 'remove_ubi_volume(PART_KERNEL_NAME)' "$MTD_HELPER" ||
 	fail "FIT Web upgrades do not remove the legacy kernel volume"
 grep -Fq 'remove_ubi_volume(PART_ROOTFS_NAME)' "$MTD_HELPER" ||
 	fail "FIT Web upgrades do not remove the legacy rootfs volume"
+grep -Fq 'label = "ubi";' "$BOARD_DTS" ||
+	fail "the board device tree does not define the raw UBI partition"
+grep -Fq 'reg = <0x0580000 0x6c00000>;' "$BOARD_DTS" ||
+	fail "the board device tree raw UBI partition boundary changed"
+grep -Fq "Raw FIT upgrade requires the '%s' MTD partition" "$MTD_HELPER" ||
+	fail "missing explicit diagnostic for an unavailable raw UBI partition"
 grep -Fq 'Qihoo 360T7 Recovery' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery overlay was not applied"

@@ -40,6 +40,10 @@ spi-nand0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),
 108M(ubi),1M(stock-config),512k(stock-factory),4M(stock-log)
 ```
 
+The same boundaries are embedded as fixed partitions in the 360T7 U-Boot
+device tree. This keeps the `ubi` MTD partition available even if runtime
+`mtdparts` environment parsing is unavailable or contains stale data.
+
 The boot path prefers the current single `fit` UBI volume. A raw FIT uploaded
 through Firmware update removes legacy `kernel` and `rootfs` volumes before it
 writes `fit` and recreates `rootfs_data`. The separate layout remains only as
