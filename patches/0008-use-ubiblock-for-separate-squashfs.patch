@@ -2,7 +2,8 @@ diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c b/ub
 index 78cd102af..db52dd4e7 100644
 --- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
 +++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
-@@ -1096,28 +1096,36 @@ static int ubi_dual_boot(struct mtd_info *mtd)
+@@ -1095,30 +1095,38 @@ static int ubi_dual_boot(struct mtd_info *mtd)
+ 
  static int ubi_set_separate_rootfs_bootargs(void)
  {
  	const char *bootargs = env_get("bootargs");
@@ -51,3 +52,5 @@ index 78cd102af..db52dd4e7 100644
 +
  	return ret;
  }
+ 
+ static int boot_from_ubi(struct mtd_info *mtd)
