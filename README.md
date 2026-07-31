@@ -11,7 +11,7 @@ hardware code, NOR partition table, ART/CDT handler, or binary is used.
 The interface provides dedicated pages for firmware update, initramfs RAM boot
 and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
 upload path and writes the fixed-layout `fip` partition.
-All three Web pages display the release marker `U-Boot v1.0.9` and use the
+All three Web pages display the release marker `U-Boot v1.0.10` and use the
 footer `郑州子安信息科技 · 构建日期：2026-07-31`. The release marker is static
 and intentionally separate from the upstream U-Boot version string so the
 installed recovery build can be identified without a serial console.
@@ -56,6 +56,12 @@ The layouts are mutually exclusive. A combined FIT update removes `kernel` and
 `rootfs` before writing the single `fit` volume. A standard sysupgrade update
 validates the complete archive before removing `fit` and writing separate
 `kernel` and `rootfs` volumes. Both paths recreate `rootfs_data`.
+
+When a combined FIT is selected after a separate `kernel`/`rootfs` image, the
+UBI partition is rebuilt before the FIT volume is allocated. This prevents
+stale split-layout or vendor volumes from consuming PEBs during the layout
+switch. A FIT allocation failure is reported as `failed:write:-27`; a later
+`rootfs_data` allocation failure remains `failed:write:-28`.
 
 The boot path prefers `fit` when present and otherwise boots the separate
 `kernel`/`rootfs` layout by exposing the SquashFS root volume through

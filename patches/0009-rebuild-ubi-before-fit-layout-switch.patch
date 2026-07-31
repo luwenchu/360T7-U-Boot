@@ -1,0 +1,45 @@
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+@@ -650,13 +650,19 @@ static int read_ubi_volume(const char *volume, void *buff, size_t size)
+ static int write_ubi_fit_image(const void *data, size_t size,
+ 			       struct mtd_info *mtd)
+ {
++	bool split_layout;
+ 	int ret;
+ 
+ 	ret = mount_ubi(mtd, true);
+ 	if (ret)
+ 		return ret;
+ 
+-	if (!ubi_find_volume(PART_FIT_NAME) && !ubi_find_volume(PART_FIP_NAME)) {
++	split_layout = ubi_find_volume(PART_KERNEL_NAME) ||
++		       ubi_find_volume(PART_ROOTFS_NAME);
++
++	if (split_layout ||
++	    (!ubi_find_volume(PART_FIT_NAME) &&
++	     !ubi_find_volume(PART_FIP_NAME))) {
+ 		/* ubi is dirty, erase ubi and recreate volumes */
+ 		ubi_exit();
+ 		ret = mtd_erase_skip_bad(mtd, 0, mtd->size, mtd->size, NULL, NULL, false);
+@@ -692,10 +698,19 @@ static int write_ubi_fit_image(const void *data, size_t size,
+ 	remove_ubi_volume(PART_ROOTFS_DATA_NAME);
+ 
+ 	ret = update_ubi_volume(PART_FIT_NAME, -1, data, size);
+-	if (ret)
++	if (ret) {
++		cprintln(ERROR, "*** Failed to create or write FIT volume, err = %d ***",
++			 ret);
++		if (ret == -ENOSPC)
++			ret = -EFBIG;
+ 		goto out;
++	}
+ 
+ 	ret = create_ubi_volume(PART_ROOTFS_DATA_NAME, 0, -1, true);
++	if (ret)
++		cprintln(ERROR,
++			 "*** FIT was written, but rootfs_data creation failed, err = %d ***",
++			 ret);
+ 
+ out:
+ 	return ret;

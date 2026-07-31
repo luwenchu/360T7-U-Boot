@@ -72,6 +72,12 @@ grep -Fq 'remove_ubi_volume(PART_KERNEL_NAME)' "$MTD_HELPER" ||
 	fail "FIT Web upgrades do not remove the legacy kernel volume"
 grep -Fq 'remove_ubi_volume(PART_ROOTFS_NAME)' "$MTD_HELPER" ||
 	fail "FIT Web upgrades do not remove the legacy rootfs volume"
+grep -Fq 'split_layout = ubi_find_volume(PART_KERNEL_NAME)' "$MTD_HELPER" ||
+	fail "FIT Web upgrades do not detect the separate-volume layout"
+grep -Fq 'if (ret == -ENOSPC)' "$MTD_HELPER" ||
+	fail "FIT volume ENOSPC is not distinguished from overlay ENOSPC"
+grep -Fq 'ret = -EFBIG' "$MTD_HELPER" ||
+	fail "FIT volume ENOSPC does not use the distinct EFBIG result"
 grep -Fq 'BOARD=qihoo_360t7' "$MTD_HELPER" ||
 	fail "standard sysupgrade images are not restricted to the 360T7"
 grep -Fq 'Sysupgrade kernel is not a FIT image' "$MTD_HELPER" ||
@@ -108,9 +114,9 @@ grep -Fq 'FIT + SYSUPGRADE' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery does not advertise both supported firmware formats"
 for page in index.html initramfs.html uboot.html; do
-	grep -Fq 'U-Boot v1.0.9' \
+	grep -Fq 'U-Boot v1.0.10' \
 		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
-		fail "visible U-Boot v1.0.9 marker is missing from $page"
+		fail "visible U-Boot v1.0.10 marker is missing from $page"
 done
 grep -Fq '支持 combined FIT BIN 和标准 qihoo_360t7 sysupgrade BIN' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
@@ -168,8 +174,8 @@ strings "$UBOOT_BIN" | grep -Fq \
 	fail "360T7 raw SPI-NAND Linux device-tree fixup was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'mediatek,bmt-max-reserved-blocks' ||
 	fail "NMBM property removal was not linked into U-Boot"
-strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.9' ||
-	fail "visible U-Boot v1.0.9 marker was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.10' ||
+	fail "visible U-Boot v1.0.10 marker was not linked into U-Boot"
 
 FIP_SIZE="$(wc -c < "$FIP" | tr -d ' ')"
 test "$FIP_SIZE" -gt 262144 || fail "FIP is unexpectedly small"
@@ -198,7 +204,7 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "web_overlay=Qihoo 360T7 Recovery"
 	echo "web_uboot_update=enabled"
 	echo "web_firmware_formats=combined_fit,qihoo_360t7_sysupgrade_tar"
-	echo "web_version=v1.0.9"
+	echo "web_version=v1.0.10"
 	echo "web_footer=Zhengzhou_Zian_Information_Technology"
 	echo "linux_dtb_fixup=qihoo_360t7_force_raw_spinand"
 	echo "separate_rootfs=dynamic_ubiblock_volume_id"
