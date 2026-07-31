@@ -10,7 +10,8 @@ UBOOT_BIN="$SOURCE_DIR/uboot-mtk-20230718-09eda825/u-boot.bin"
 MTD_HELPER="$SOURCE_DIR/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c"
 UPSTREAM_COMMIT="$(git -C "$SOURCE_DIR" rev-parse HEAD)"
 EXPECTED_COMMIT="abe158087c80ed1896f2c281e2dae5e43ffbee41"
-EXPECTED_MTDPARTS='nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),108M(ubi),1M(stock-config),512k(stock-factory),4M(stock-log)'
+EXPECTED_MTDIDS='spi-nand0=spi-nand0'
+EXPECTED_MTDPARTS='spi-nand0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),108M(ubi),1M(stock-config),512k(stock-factory),4M(stock-log)'
 FIP_LIMIT=2097152
 
 fail()
@@ -25,18 +26,40 @@ test -f "$UBOOT_FINAL_CFG" || fail "Final U-Boot configuration is missing"
 test "$UPSTREAM_COMMIT" = "$EXPECTED_COMMIT" || fail "unexpected upstream commit"
 grep -qx 'CONFIG_DEFAULT_DEVICE_TREE="mt7981-360t7"' "$UBOOT_CFG" ||
 	fail "wrong device tree"
-grep -qx 'CONFIG_ENABLE_NAND_NMBM=y' "$UBOOT_CFG" ||
-	fail "NMBM is not enabled"
+if grep -qx 'CONFIG_ENABLE_NAND_NMBM=y' "$UBOOT_CFG"; then
+	fail "NMBM must be disabled to match the ImmortalWrt raw SPI-NAND layout"
+fi
+if grep -qx 'CONFIG_CMD_NMBM=y' "$UBOOT_CFG"; then
+	fail "the NMBM command must be disabled"
+fi
+if grep -qx 'CONFIG_ENABLE_NAND_NMBM=y' "$UBOOT_FINAL_CFG"; then
+	fail "the final U-Boot build unexpectedly enabled NMBM"
+fi
+if grep -qx 'CONFIG_CMD_NMBM=y' "$UBOOT_FINAL_CFG"; then
+	fail "the final U-Boot build unexpectedly enabled the NMBM command"
+fi
 grep -qx 'CONFIG_MTD_SPI_NAND=y' "$UBOOT_CFG" ||
 	fail "SPI-NAND is not enabled"
 grep -qx 'CONFIG_WEBUI_DHCP_SERVER=y' "$UBOOT_CFG" ||
 	fail "failsafe DHCP server is not enabled"
 grep -Fqx "CONFIG_MTDPARTS_DEFAULT=\"$EXPECTED_MTDPARTS\"" "$UBOOT_CFG" ||
 	fail "fixed partition layout changed"
+grep -Fqx "CONFIG_MTDIDS_DEFAULT=\"$EXPECTED_MTDIDS\"" "$UBOOT_CFG" ||
+	fail "raw SPI-NAND MTD identifier changed"
+grep -Fqx "CONFIG_MTDIDS_DEFAULT=\"$EXPECTED_MTDIDS\"" "$UBOOT_FINAL_CFG" ||
+	fail "final U-Boot build does not use the raw SPI-NAND MTD identifier"
+grep -Fqx "CONFIG_MTDPARTS_DEFAULT=\"$EXPECTED_MTDPARTS\"" "$UBOOT_FINAL_CFG" ||
+	fail "final U-Boot build does not preserve the fixed raw partition layout"
 grep -qx 'CONFIG_MTK_FIXED_MTD_MTDPARTS=y' "$UBOOT_FINAL_CFG" ||
 	fail "final U-Boot build does not enforce fixed MTD partitions"
 grep -Fq 'ubi_set_separate_rootfs_bootargs' "$MTD_HELPER" ||
 	fail "separate kernel/rootfs boot argument support is missing"
+grep -Fq 'read_ubi_volume(PART_FIT_NAME' "$MTD_HELPER" ||
+	fail "the FIT volume is not the primary boot target"
+grep -Fq 'remove_ubi_volume(PART_KERNEL_NAME)' "$MTD_HELPER" ||
+	fail "FIT Web upgrades do not remove the legacy kernel volume"
+grep -Fq 'remove_ubi_volume(PART_ROOTFS_NAME)' "$MTD_HELPER" ||
+	fail "FIT Web upgrades do not remove the legacy rootfs volume"
 grep -Fq 'Qihoo 360T7 Recovery' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery overlay was not applied"
@@ -94,7 +117,8 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "board=360t7"
 	echo "dram=DDR3 (board-specific upstream configuration)"
 	echo "storage=SPI-NAND"
-	echo "nmbm=enabled"
+	echo "nmbm=disabled"
+	echo "flash_address_space=raw_spi_nand"
 	echo "fixed_mtdparts=enabled"
 	echo "failsafe_dhcp_server=192.168.1.100-192.168.1.199"
 	echo "failsafe_mac_source=stock-factory lanMac"

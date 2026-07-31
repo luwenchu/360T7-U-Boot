@@ -1,8 +1,9 @@
 # Qihoo 360T7 U-Boot Web Recovery
 
 This repository builds a device-specific U-Boot FIP for the Qihoo 360T7.
-It uses the MT7981, DDR3, SPI-NAND, NMBM and fixed-partition configuration
-from `hanwckf/bl-mt798x`.
+It uses the MT7981, DDR3, raw SPI-NAND and fixed-partition configuration
+from `hanwckf/bl-mt798x`. NMBM is deliberately disabled so U-Boot and the
+ImmortalWrt `qihoo_360t7` kernel access the same NAND address space.
 
 The Web recovery interface is restyled for the 360T7 while retaining the
 upstream MediaTek upload, image validation and flashing handlers. No IPQ60xx
@@ -35,13 +36,14 @@ The GitHub Actions build produces:
 The FIP is built for this exact fixed layout:
 
 ```text
-nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),
+spi-nand0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),
 108M(ubi),1M(stock-config),512k(stock-factory),4M(stock-log)
 ```
 
-The boot path supports both the current single `fit` UBI volume and the
-legacy separate `kernel`/`rootfs` volume layout. When separate volumes are
-present, U-Boot supplies the following arguments before booting the kernel:
+The boot path prefers the current single `fit` UBI volume. A raw FIT uploaded
+through Firmware update removes legacy `kernel` and `rootfs` volumes before it
+writes `fit` and recreates `rootfs_data`. The separate layout remains only as
+a boot fallback for recovery. When that fallback is used, U-Boot supplies:
 
 ```text
 ubi.mtd=ubi root=ubi0:rootfs rootfstype=squashfs rootwait
@@ -73,19 +75,21 @@ FIP hash.
 
 ## Flashing warning
 
-This is an untested bootloader build. A successful CI build and static
-validation do not prove that it will boot on physical hardware.
+This raw SPI-NAND layout must be hardware-tested before it replaces an older
+NMBM release. A successful CI build and static validation do not by themselves
+prove that it will boot on every flash variant.
 
 Do not write BL2, Factory, the whole NAND, or this FIP without:
 
 - a 3.3 V TTL serial console;
 - a verified original BL2 and FIP backup;
 - an MT7981 DDR3 RAM-boot recovery path using `mtk_uartboot`;
-- confirmation that the installed layout is the same NMBM fixed layout.
+- confirmation that Linux exposes the same raw fixed layout shown above.
 
-Do not use this FIP with the official OpenWrt non-NMBM partition stack.
-The first hardware test should be a RAM-assisted recovery test, not an
-unattended NAND write.
+This FIP is specifically intended to match the official ImmortalWrt
+`qihoo_360t7` raw SPI-NAND partition stack. Do not use it with an NMBM-based
+Linux device tree. The first hardware test should retain a working initramfs
+RAM recovery path.
 
 ## Baseline
 

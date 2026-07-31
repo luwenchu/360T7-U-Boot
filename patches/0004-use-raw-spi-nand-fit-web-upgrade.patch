@@ -1,0 +1,66 @@
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+@@ -679,6 +679,14 @@ static int write_ubi_fit_image(const void *data, size_t size,
+ #endif /* CONFIG_ENV_IS_IN_UBI */
+ 	}
+ 
++	/*
++	 * A raw FIT is the only supported Web firmware format for this layout.
++	 * Remove legacy split-layout volumes so they cannot consume space or
++	 * take precedence during a later boot.
++	 */
++	remove_ubi_volume(PART_KERNEL_NAME);
++	remove_ubi_volume(PART_ROOTFS_NAME);
++
+ 	/* Remove this volume first in case of no enough PEBs */
+ 	remove_ubi_volume(PART_ROOTFS_DATA_NAME);
+ 
+@@ -1073,13 +1081,15 @@ static int boot_from_ubi(struct mtd_info *mtd)
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = read_ubi_volume(PART_KERNEL_NAME, (void *)data_load_addr, 0);
++	ret = read_ubi_volume(PART_FIT_NAME, (void *)data_load_addr, 0);
+ 	if (ret == ENODEV) {
+-		ret = read_ubi_volume(PART_FIT_NAME, (void *)data_load_addr, 0);
+-	} else if (!ret && ubi_find_volume(PART_ROOTFS_NAME)) {
+-		ret = ubi_set_separate_rootfs_bootargs();
+-		if (ret)
+-			return ret;
++		ret = read_ubi_volume(PART_KERNEL_NAME,
++				      (void *)data_load_addr, 0);
++		if (!ret && ubi_find_volume(PART_ROOTFS_NAME)) {
++			ret = ubi_set_separate_rootfs_bootargs();
++			if (ret)
++				return ret;
++		}
+ 	}
+ 	if (ret)
+ 		return ret;
+diff --git a/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig b/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
+--- a/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
++++ b/uboot-mtk-20230718-09eda825/configs/mt7981_360t7_defconfig
+@@ -22,7 +22,6 @@ CONFIG_WEBUI_DHCP_SERVER=y
+ CONFIG_MTK_UBI_SUPPORT=y
+ CONFIG_MTK_UPGRADE_BL2_VERIFY=y
+ # CONFIG_MTK_UPGRADE_IMAGE_VERIFY is not set
+-CONFIG_ENABLE_NAND_NMBM=y
+ CONFIG_FIT=y
+ CONFIG_AUTOBOOT_MENU_SHOW=y
+ CONFIG_AUTOBOOT_MENU_MTK_SHOW=y
+@@ -46,12 +45,11 @@ CONFIG_CMD_GPIO_READ=y
+ CONFIG_CMD_PWM=y
+ CONFIG_CMD_MTD=y
+-CONFIG_CMD_NMBM=y
+ CONFIG_CMD_TFTPPUT=y
+ CONFIG_CMD_PING=y
+ CONFIG_CMD_SMC=y
+ CONFIG_CMD_MTDPARTS=y
+-CONFIG_MTDIDS_DEFAULT="nmbm0=nmbm0"
+-CONFIG_MTDPARTS_DEFAULT="nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),108M(ubi),1M(stock-config),512k(stock-factory),4M(stock-log)"
++CONFIG_MTDIDS_DEFAULT="spi-nand0=spi-nand0"
++CONFIG_MTDPARTS_DEFAULT="spi-nand0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),108M(ubi),1M(stock-config),512k(stock-factory),4M(stock-log)"
+ CONFIG_CMD_GL_BTN=y
+ CONFIG_OF_EMBED=y
+ CONFIG_ENV_OVERWRITE=y

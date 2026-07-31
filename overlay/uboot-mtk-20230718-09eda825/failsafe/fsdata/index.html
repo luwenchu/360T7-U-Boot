@@ -13,7 +13,7 @@
 				<span class="brand-mark">360</span>
 				<span>Qihoo 360T7 Recovery</span>
 			</div>
-			<div class="device">MT7981 / SPI-NAND / NMBM</div>
+			<div class="device">MT7981 / Raw SPI-NAND / FIT</div>
 		</header>
 		<main id="m">
 			<nav class="tabs" aria-label="恢复功能">
@@ -25,7 +25,7 @@
 				<p class="eyebrow">FIRMWARE UPDATE</p>
 				<h1>刷入 360T7 固件</h1>
 				<p id="hint" class="lead">
-					仅选择适用于 Qihoo 360T7 固定分区布局的固件。上传后请核对文件大小和 MD5，再执行写入。
+					仅选择仓库发布的 360T7 uboot-web-fit.bin。该文件必须是 combined FIT，禁止使用旧式 tar BIN。
 				</p>
 				<form id="form" class="upload-panel">
 					<div id="mtd_layout" class="layout-option" style="display: none;">
@@ -53,6 +53,7 @@
 					<strong>重要提示</strong>
 					<ul>
 						<li>电脑应自动获得 192.168.1.100-192.168.1.199 地址，管理页固定为 192.168.1.1。</li>
+						<li>Firmware update 只接受 combined FIT 内容的 uboot-web-fit.bin。</li>
 						<li>写入过程中不要断电、拔网线或关闭浏览器。</li>
 						<li>错误的 FIP、分区布局或机型仍可能导致设备无法启动。</li>
 					</ul>
