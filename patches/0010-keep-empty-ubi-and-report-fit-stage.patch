@@ -1,0 +1,161 @@
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+@@ -596,13 +596,24 @@ static int create_ubi_volume(const char *volume, u64 size, int vol_id,
+ 	return ret;
+ }
+ 
+-static int update_ubi_volume_custom(const char *volume, int vol_id,
+-				    const void *data, size_t size,
+-				    uint64_t reserved_size, bool dynamic)
++enum ubi_update_stage {
++	UBI_UPDATE_NONE,
++	UBI_UPDATE_CREATE,
++	UBI_UPDATE_WRITE,
++};
++
++static int update_ubi_volume_custom_stage(const char *volume, int vol_id,
++					  const void *data, size_t size,
++					  uint64_t reserved_size,
++					  bool dynamic,
++					  enum ubi_update_stage *stage)
+ {
+ 	struct ubi_volume *vol;
+ 	int ret;
+ 
++	if (stage)
++		*stage = UBI_UPDATE_NONE;
++
+ 	vol = ubi_find_volume((char *)volume);
+ 	if (vol) {
+ 		if (vol_id < 0)
+@@ -610,7 +621,7 @@ static int update_ubi_volume_custom(const char *volume, int vol_id,
+ 
+ 		ret = remove_ubi_volume(volume);
+-		if (ret)
+-			return ret;
++		if (ret)
++			return ret > 0 ? -ret : ret;
+ 	}
+ 
+ 	if (vol_id < 0)
+@@ -619,23 +630,42 @@ static int update_ubi_volume_custom(const char *volume, int vol_id,
+ 	if (reserved_size < size)
+ 		reserved_size = size;
+ 
++	if (stage)
++		*stage = UBI_UPDATE_CREATE;
+ 	ret = ubi_create_vol((char *)volume, reserved_size, dynamic, vol_id,
+ 			     false);
+-	if (ret)
++	if (ret) {
++		if (ret > 0)
++			ret = -ret;
+ 		return ret;
++	}
+ 
+ 	printf("Updating volume '%s' from 0x%lx, size 0x%zx ... ", volume,
+ 	       (ulong)data, size);
+ 
++	if (stage)
++		*stage = UBI_UPDATE_WRITE;
+ 	ret = ubi_volume_write((char *)volume, (void *)data, size);
+ 	if (!ret) {
++		if (stage)
++			*stage = UBI_UPDATE_NONE;
+ 		printf("OK\n");
+ 		return 0;
+ 	}
+ 
++	if (ret > 0)
++		ret = -ret;
+ 	return ret;
+ }
+ 
++static int update_ubi_volume_custom(const char *volume, int vol_id,
++				    const void *data, size_t size,
++				    uint64_t reserved_size, bool dynamic)
++{
++	return update_ubi_volume_custom_stage(volume, vol_id, data, size,
++					      reserved_size, dynamic, NULL);
++}
++
+ static int update_ubi_volume(const char *volume, int vol_id, const void *data,
+ 			     size_t size)
+ {
+@@ -650,6 +680,10 @@ static int read_ubi_volume(const char *volume, void *buff, size_t size)
+ static int write_ubi_fit_image(const void *data, size_t size,
+ 			       struct mtd_info *mtd)
+ {
++	struct ubi_device *ubi;
++	enum ubi_update_stage stage;
++	u64 required_pebs;
++	int user_volumes;
+ 	bool split_layout;
+ 	int ret;
+ 
+@@ -659,9 +693,12 @@ static int write_ubi_fit_image(const void *data, size_t size,
+ 
+ 	split_layout = ubi_find_volume(PART_KERNEL_NAME) ||
+ 		       ubi_find_volume(PART_ROOTFS_NAME);
++	ubi = ubi_devices[0];
++	user_volumes = ubi ? ubi->vol_count - UBI_INT_VOL_COUNT : -1;
+ 
+ 	if (split_layout ||
+-	    (!ubi_find_volume(PART_FIT_NAME) &&
++	    (user_volumes > 0 &&
++	     !ubi_find_volume(PART_FIT_NAME) &&
+ 	     !ubi_find_volume(PART_FIP_NAME))) {
+ 		/* ubi is dirty, erase ubi and recreate volumes */
+ 		ubi_exit();
+@@ -684,6 +721,8 @@ static int write_ubi_fit_image(const void *data, size_t size,
+ 			goto out;
+ #endif /* CONFIG_SYS_REDUNDAND_ENVIRONMENT */
+ #endif /* CONFIG_ENV_IS_IN_UBI */
++	} else if (!user_volumes) {
++		cprintln(NORMAL, "*** Empty UBI detected; keeping current attachment ***");
+ 	}
+ 
+ 	/*
+@@ -697,20 +736,36 @@ static int write_ubi_fit_image(const void *data, size_t size,
+ 	/* Remove this volume first in case of no enough PEBs */
+ 	remove_ubi_volume(PART_ROOTFS_DATA_NAME);
+ 
+-	ret = update_ubi_volume(PART_FIT_NAME, -1, data, size);
++	ubi = ubi_devices[0];
++	if (!ubi || !ubi->leb_size)
++		return -ENODEV;
++
++	required_pebs = DIV_ROUND_UP_ULL(size, ubi->leb_size);
++	cprintln(NORMAL,
++		 "*** FIT size %zu requires %llu LEBs; %d are available ***",
++		 size, required_pebs, ubi->avail_pebs);
++	if (required_pebs > ubi->avail_pebs) {
++		cprintln(ERROR, "*** FIT volume does not fit in the attached UBI device ***");
++		return -EFBIG;
++	}
++
++	ret = update_ubi_volume_custom_stage(PART_FIT_NAME, -1, data, size,
++					     size, true, &stage);
+ 	if (ret) {
+-		cprintln(ERROR, "*** Failed to create or write FIT volume, err = %d ***",
+-			 ret);
+-		if (ret == -ENOSPC)
++		cprintln(ERROR, "*** FIT volume stage %d failed, err = %d ***",
++			 stage, ret);
++		if (ret == -ENOSPC && stage == UBI_UPDATE_CREATE)
+ 			ret = -EFBIG;
++		else if (ret == -ENOSPC && stage == UBI_UPDATE_WRITE)
++			ret = -EIO;
+ 		goto out;
+ 	}
+ 
+ 	ret = create_ubi_volume(PART_ROOTFS_DATA_NAME, 0, -1, true);
+ 	if (ret)
+ 		cprintln(ERROR,
+ 			 "*** FIT was written, but rootfs_data creation failed, err = %d ***",
+ 			 ret);
+ 
+ out:
+ 	return ret;
+ }

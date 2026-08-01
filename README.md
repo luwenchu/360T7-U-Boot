@@ -11,8 +11,8 @@ hardware code, NOR partition table, ART/CDT handler, or binary is used.
 The interface provides dedicated pages for firmware update, initramfs RAM boot
 and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
 upload path and writes the fixed-layout `fip` partition.
-All three Web pages display the release marker `U-Boot v1.0.10` and use the
-footer `郑州子安信息科技 · 构建日期：2026-07-31`. The release marker is static
+All three Web pages display the release marker `U-Boot v1.0.11` and use the
+footer `郑州子安信息科技 · 构建日期：2026-08-01`. The release marker is static
 and intentionally separate from the upstream U-Boot version string so the
 installed recovery build can be identified without a serial console.
 
@@ -58,10 +58,17 @@ validates the complete archive before removing `fit` and writing separate
 `kernel` and `rootfs` volumes. Both paths recreate `rootfs_data`.
 
 When a combined FIT is selected after a separate `kernel`/`rootfs` image, the
-UBI partition is rebuilt before the FIT volume is allocated. This prevents
-stale split-layout or vendor volumes from consuming PEBs during the layout
-switch. A FIT allocation failure is reported as `failed:write:-27`; a later
-`rootfs_data` allocation failure remains `failed:write:-28`.
+UBI partition is rebuilt before the FIT volume is allocated. Unknown non-empty
+layouts are also rebuilt, but an already empty and successfully attached UBI
+device is kept in place instead of being erased and reattached a second time.
+Before creating `fit`, U-Boot reports the required and available LEB counts and
+rejects an image only when that attached UBI geometry cannot hold it.
+
+FIT creation and data-writing failures are tracked separately, and positive
+and negative UBI errno conventions are normalized before returning to the Web
+handler. A FIT capacity or creation ENOSPC is reported as `failed:write:-27`;
+a FIT data-write ENOSPC is reported as `failed:write:-5`; a later
+`rootfs_data` allocation ENOSPC remains `failed:write:-28`.
 
 The boot path prefers `fit` when present and otherwise boots the separate
 `kernel`/`rootfs` layout by exposing the SquashFS root volume through
@@ -103,8 +110,8 @@ sparse checkout, applies the local Web overlay and builds only:
 SOC=mt7981 BOARD=360t7 FIXED_MTDPARTS=1 ./build.sh
 ```
 
-`SOURCE_DATE_EPOCH` is fixed to `2026-07-31 00:00:00 UTC`; the visible Web
-build date is also `2026-07-31`. `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST`
+`SOURCE_DATE_EPOCH` is fixed to `2026-08-01 00:00:00 UTC`; the visible Web
+build date is also `2026-08-01`. `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST`
 remain fixed so repeated builds of the same repository commit produce the same
 FIP hash.
 

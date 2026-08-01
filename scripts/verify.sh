@@ -74,10 +74,28 @@ grep -Fq 'remove_ubi_volume(PART_ROOTFS_NAME)' "$MTD_HELPER" ||
 	fail "FIT Web upgrades do not remove the legacy rootfs volume"
 grep -Fq 'split_layout = ubi_find_volume(PART_KERNEL_NAME)' "$MTD_HELPER" ||
 	fail "FIT Web upgrades do not detect the separate-volume layout"
-grep -Fq 'if (ret == -ENOSPC)' "$MTD_HELPER" ||
-	fail "FIT volume ENOSPC is not distinguished from overlay ENOSPC"
-grep -Fq 'ret = -EFBIG' "$MTD_HELPER" ||
-	fail "FIT volume ENOSPC does not use the distinct EFBIG result"
+grep -Fq 'user_volumes = ubi ? ubi->vol_count - UBI_INT_VOL_COUNT : -1' \
+	"$MTD_HELPER" ||
+	fail "FIT Web upgrades do not distinguish an empty attached UBI"
+grep -Fq 'user_volumes > 0' "$MTD_HELPER" ||
+	fail "unknown non-empty UBI layouts are no longer rebuilt"
+grep -Fq 'Empty UBI detected; keeping current attachment' "$MTD_HELPER" ||
+	fail "empty UBI attachments are still rebuilt"
+grep -Fq 'required_pebs = DIV_ROUND_UP_ULL(size, ubi->leb_size)' \
+	"$MTD_HELPER" ||
+	fail "FIT volume capacity is not checked against the attached UBI geometry"
+grep -Fq 'required_pebs > ubi->avail_pebs' "$MTD_HELPER" ||
+	fail "FIT volume capacity does not use the available PEB count"
+grep -Fq 'UBI_UPDATE_CREATE' "$MTD_HELPER" ||
+	fail "FIT volume creation failures are not stage-specific"
+grep -Fq 'UBI_UPDATE_WRITE' "$MTD_HELPER" ||
+	fail "FIT volume write failures are not stage-specific"
+grep -Fq 'ret > 0' "$MTD_HELPER" ||
+	fail "UBI write errno signs are not normalized"
+grep -Fq 'ret == -ENOSPC && stage == UBI_UPDATE_CREATE' "$MTD_HELPER" ||
+	fail "FIT create ENOSPC does not use the distinct EFBIG result"
+grep -Fq 'ret == -ENOSPC && stage == UBI_UPDATE_WRITE' "$MTD_HELPER" ||
+	fail "FIT write ENOSPC is not distinguished from create ENOSPC"
 grep -Fq 'BOARD=qihoo_360t7' "$MTD_HELPER" ||
 	fail "standard sysupgrade images are not restricted to the 360T7"
 grep -Fq 'Sysupgrade kernel is not a FIT image' "$MTD_HELPER" ||
@@ -114,14 +132,14 @@ grep -Fq 'FIT + SYSUPGRADE' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery does not advertise both supported firmware formats"
 for page in index.html initramfs.html uboot.html; do
-	grep -Fq 'U-Boot v1.0.10' \
+	grep -Fq 'U-Boot v1.0.11' \
 		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
-		fail "visible U-Boot v1.0.10 marker is missing from $page"
+		fail "visible U-Boot v1.0.11 marker is missing from $page"
 done
 grep -Fq '支持 combined FIT BIN 和标准 qihoo_360t7 sysupgrade BIN' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery firmware format guidance is missing"
-grep -Fq '郑州子安信息科技 · 构建日期：2026-07-31' \
+grep -Fq '郑州子安信息科技 · 构建日期：2026-08-01' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "company footer is missing from index.html"
 if grep -Fq 'IPQ60xx 的 ART、CDT 或 NOR 分区操作' \
@@ -133,7 +151,7 @@ if grep -Fq '首次通过 U-Boot Web 刷入本仓库固件可能需要约 10 分
 	fail "obsolete first firmware flash duration warning is still present"
 fi
 for page in initramfs.html uboot.html; do
-	grep -Fq '郑州子安信息科技 · 构建日期：2026-07-31' \
+	grep -Fq '郑州子安信息科技 · 构建日期：2026-08-01' \
 		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
 		fail "company footer is missing from $page"
 	if grep -Fq 'id="version"' \
@@ -144,7 +162,7 @@ done
 grep -Fq "upload('fip')" \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/uboot.html" ||
 	fail "U-Boot update page does not use the upstream FIP upload handler"
-grep -Fq '构建日期：2026-07-31' \
+grep -Fq '构建日期：2026-08-01' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/uboot.html" ||
 	fail "U-Boot update page has an unexpected build date"
 strings "$UBOOT_BIN" | grep -Fq \
@@ -174,8 +192,17 @@ strings "$UBOOT_BIN" | grep -Fq \
 	fail "360T7 raw SPI-NAND Linux device-tree fixup was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'mediatek,bmt-max-reserved-blocks' ||
 	fail "NMBM property removal was not linked into U-Boot"
-strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.10' ||
-	fail "visible U-Boot v1.0.10 marker was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.11' ||
+	fail "visible U-Boot v1.0.11 marker was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq \
+	'Empty UBI detected; keeping current attachment' ||
+	fail "empty UBI preservation diagnostic was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq \
+	'FIT size %zu requires %llu LEBs; %d are available' ||
+	fail "FIT capacity diagnostic was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq \
+	'FIT volume stage %d failed, err = %d' ||
+	fail "FIT update-stage diagnostic was not linked into U-Boot"
 
 FIP_SIZE="$(wc -c < "$FIP" | tr -d ' ')"
 test "$FIP_SIZE" -gt 262144 || fail "FIP is unexpectedly small"
@@ -204,11 +231,11 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "web_overlay=Qihoo 360T7 Recovery"
 	echo "web_uboot_update=enabled"
 	echo "web_firmware_formats=combined_fit,qihoo_360t7_sysupgrade_tar"
-	echo "web_version=v1.0.10"
+	echo "web_version=v1.0.11"
 	echo "web_footer=Zhengzhou_Zian_Information_Technology"
 	echo "linux_dtb_fixup=qihoo_360t7_force_raw_spinand"
 	echo "separate_rootfs=dynamic_ubiblock_volume_id"
-	echo "build_date=2026-07-31"
+	echo "build_date=2026-08-01"
 } > "$DIST_DIR/validation-report.txt"
 
 {
