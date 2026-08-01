@@ -1,0 +1,28 @@
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+@@ -781,6 +781,24 @@ static int write_ubi_fit_image(const void *data, size_t size,
+ 	/* Remove this volume first in case of no enough PEBs */
+ 	remove_ubi_volume(PART_ROOTFS_DATA_NAME);
+ 
++	/*
++	 * Release the old FIT reservation before checking capacity. Otherwise
++	 * ubi->avail_pebs only describes the space left beside the existing FIT
++	 * volume and a same-size replacement is rejected before the update
++	 * helper gets a chance to remove it.
++	 */
++	if (ubi_find_volume(PART_FIT_NAME)) {
++		ret = remove_ubi_volume(PART_FIT_NAME);
++		if (ret) {
++			if (ret > 0)
++				ret = -ret;
++			ubi = ubi_devices[0];
++			set_fit_ubi_diagnostic("fit-remove", data, size, mtd,
++					       ubi, 0, ret);
++			return ret;
++		}
++	}
++
+ 	ubi = ubi_devices[0];
+ 	if (!ubi || !ubi->leb_size) {
+ 		set_fit_ubi_diagnostic("geometry", data, size, mtd, ubi, 0,

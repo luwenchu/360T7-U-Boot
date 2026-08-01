@@ -11,7 +11,7 @@ hardware code, NOR partition table, ART/CDT handler, or binary is used.
 The interface provides dedicated pages for firmware update, initramfs RAM boot
 and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
 upload path and writes the fixed-layout `fip` partition.
-All three Web pages display the release marker `U-Boot v1.0.12` and use the
+All three Web pages display the release marker `U-Boot v1.0.13` and use the
 footer `郑州子安信息科技 · 构建日期：2026-08-01`. The release marker is static
 and intentionally separate from the upstream U-Boot version string so the
 installed recovery build can be identified without a serial console.
@@ -63,6 +63,12 @@ layouts are also rebuilt, but an already empty and successfully attached UBI
 device is kept in place instead of being erased and reattached a second time.
 Before creating `fit`, U-Boot reports the required and available LEB counts and
 rejects an image only when that attached UBI geometry cannot hold it.
+
+When replacing an existing combined FIT, U-Boot removes the old `fit` volume
+before performing the capacity check. The previous order checked only the
+space remaining beside the old FIT reservation, which incorrectly rejected a
+same-size replacement even though deleting the old volume released enough
+PEBs.
 
 FIT creation and data-writing failures are tracked separately, and positive
 and negative UBI errno conventions are normalized before returning to the Web

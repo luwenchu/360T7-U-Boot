@@ -86,6 +86,16 @@ grep -Fq 'required_pebs = DIV_ROUND_UP_ULL(size, ubi->leb_size)' \
 	fail "FIT volume capacity is not checked against the attached UBI geometry"
 grep -Fq 'required_pebs > ubi->avail_pebs' "$MTD_HELPER" ||
 	fail "FIT volume capacity does not use the available PEB count"
+FIT_REMOVE_LINE="$(grep -n 'remove_ubi_volume(PART_FIT_NAME)' "$MTD_HELPER" |
+	head -n 1 | cut -d: -f1)"
+FIT_CAPACITY_LINE="$(grep -n 'required_pebs = DIV_ROUND_UP_ULL' "$MTD_HELPER" |
+	head -n 1 | cut -d: -f1)"
+test -n "$FIT_REMOVE_LINE" && test -n "$FIT_CAPACITY_LINE" ||
+	fail "FIT replacement ordering markers are missing"
+test "$FIT_REMOVE_LINE" -lt "$FIT_CAPACITY_LINE" ||
+	fail "old FIT reservation is not released before capacity checking"
+grep -Fq 'set_fit_ubi_diagnostic("fit-remove"' "$MTD_HELPER" ||
+	fail "old FIT removal failures are not reported to the Web result"
 grep -Fq 'UBI_UPDATE_CREATE' "$MTD_HELPER" ||
 	fail "FIT volume creation failures are not stage-specific"
 grep -Fq 'UBI_UPDATE_WRITE' "$MTD_HELPER" ||
@@ -132,9 +142,9 @@ grep -Fq 'FIT + SYSUPGRADE' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery does not advertise both supported firmware formats"
 for page in index.html initramfs.html uboot.html; do
-	grep -Fq 'U-Boot v1.0.12' \
+	grep -Fq 'U-Boot v1.0.13' \
 		"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/$page" ||
-		fail "visible U-Boot v1.0.12 marker is missing from $page"
+		fail "visible U-Boot v1.0.13 marker is missing from $page"
 done
 grep -Fq '支持 combined FIT BIN 和标准 qihoo_360t7 sysupgrade BIN' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
@@ -192,8 +202,8 @@ strings "$UBOOT_BIN" | grep -Fq \
 	fail "360T7 raw SPI-NAND Linux device-tree fixup was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'mediatek,bmt-max-reserved-blocks' ||
 	fail "NMBM property removal was not linked into U-Boot"
-strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.12' ||
-	fail "visible U-Boot v1.0.12 marker was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'U-Boot v1.0.13' ||
+	fail "visible U-Boot v1.0.13 marker was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq \
 	'Empty UBI detected; keeping current attachment' ||
 	fail "empty UBI preservation diagnostic was not linked into U-Boot"
@@ -235,6 +245,8 @@ strings "$UBOOT_BIN" | grep -Fq 'fit-create' ||
 	fail "FIT create-stage Web diagnostic was not linked into U-Boot"
 strings "$UBOOT_BIN" | grep -Fq 'fit-write' ||
 	fail "FIT write-stage Web diagnostic was not linked into U-Boot"
+strings "$UBOOT_BIN" | grep -Fq 'fit-remove' ||
+	fail "FIT removal-stage Web diagnostic was not linked into U-Boot"
 
 FIP_SIZE="$(wc -c < "$FIP" | tr -d ' ')"
 test "$FIP_SIZE" -gt 262144 || fail "FIP is unexpectedly small"
@@ -263,7 +275,7 @@ test "$FIP_SIZE" -le "$FIP_LIMIT" || fail "FIP exceeds the 2 MiB partition"
 	echo "web_overlay=Qihoo 360T7 Recovery"
 	echo "web_uboot_update=enabled"
 	echo "web_firmware_formats=combined_fit,qihoo_360t7_sysupgrade_tar"
-	echo "web_version=v1.0.12"
+	echo "web_version=v1.0.13"
 	echo "web_footer=Zhengzhou_Zian_Information_Technology"
 	echo "linux_dtb_fixup=qihoo_360t7_force_raw_spinand"
 	echo "separate_rootfs=dynamic_ubiblock_volume_id"
