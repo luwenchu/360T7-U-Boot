@@ -11,7 +11,7 @@ hardware code, NOR partition table, ART/CDT handler, or binary is used.
 The interface provides dedicated pages for firmware update, initramfs RAM boot
 and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
 upload path and writes the fixed-layout `fip` partition.
-All three Web pages display the release marker `U-Boot v1.0.11` and use the
+All three Web pages display the release marker `U-Boot v1.0.12` and use the
 footer `郑州子安信息科技 · 构建日期：2026-08-01`. The release marker is static
 and intentionally separate from the upstream U-Boot version string so the
 installed recovery build can be identified without a serial console.
@@ -69,6 +69,13 @@ and negative UBI errno conventions are normalized before returning to the Web
 handler. A FIT capacity or creation ENOSPC is reported as `failed:write:-27`;
 a FIT data-write ENOSPC is reported as `failed:write:-5`; a later
 `rootfs_data` allocation ENOSPC remains `failed:write:-28`.
+
+For firmware write failures, the Web result also reports the last FIT/UBI
+stage and the exact geometry seen by U-Boot, including image size, required
+LEBs, available PEBs, LEB size, good and bad PEB counts, bad-block reserve,
+total reserved PEBs, user volume count, read-only state and the original
+unmapped errno. This diagnostic is read-only and does not relax UBI capacity
+or bad-block safety checks.
 
 The boot path prefers `fit` when present and otherwise boots the separate
 `kernel`/`rootfs` layout by exposing the SquashFS root volume through

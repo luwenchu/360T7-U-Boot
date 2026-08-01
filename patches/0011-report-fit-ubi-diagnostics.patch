@@ -1,0 +1,209 @@
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.c
+@@ -58,6 +58,37 @@ static const struct dual_boot_slot ubi_boot_slots[DUAL_BOOT_MAX_SLOTS] = {
+ static char ubi_root_path[256];
+ #endif /* CONFIG_CMD_UBI */
+ 
++static char mtd_upgrade_diagnostic[384];
++
++const char *mtd_get_last_upgrade_diagnostic(void)
++{
++	return mtd_upgrade_diagnostic;
++}
++
++#ifdef CONFIG_CMD_UBI
++static void set_fit_ubi_diagnostic(const char *stage, const void *data,
++				   size_t size, struct mtd_info *mtd,
++				   struct ubi_device *ubi, u64 required_pebs,
++				   int raw_ret)
++{
++	snprintf(mtd_upgrade_diagnostic, sizeof(mtd_upgrade_diagnostic),
++		 "stage=%s;addr=%lx;size=%zu;mtd=%s;mtd_size=%llu;"
++		 "required=%llu;avail=%d;leb=%d;good=%d;bad=%d;"
++		 "beb_rsvd=%d;rsvd=%d;vols=%d;ro=%d;raw=%d",
++		 stage, (ulong)data, size,
++		 mtd && mtd->name ? mtd->name : "none",
++		 mtd ? (unsigned long long)mtd->size : 0,
++		 required_pebs, ubi ? ubi->avail_pebs : -1,
++		 ubi ? ubi->leb_size : -1,
++		 ubi ? ubi->good_peb_count : -1,
++		 ubi ? ubi->bad_peb_count : -1,
++		 ubi ? ubi->beb_rsvd_pebs : -1,
++		 ubi ? ubi->rsvd_pebs : -1,
++		 ubi ? ubi->vol_count - UBI_INT_VOL_COUNT : -1,
++		 ubi ? ubi->ro_mode : -1, raw_ret);
++}
++#endif /* CONFIG_CMD_UBI */
++
+ void gen_mtd_probe_devices(void)
+ {
+ #ifdef CONFIG_MTK_FIXED_MTD_MTDPARTS
+@@ -685,30 +716,44 @@ static int write_ubi_fit_image(const void *data, size_t size,
+ 	u64 required_pebs;
+ 	int user_volumes;
+ 	bool split_layout;
++	int raw_ret;
+ 	int ret;
+ 
++	set_fit_ubi_diagnostic("mount", data, size, mtd, NULL, 0, 0);
+ 	ret = mount_ubi(mtd, true);
+-	if (ret)
++	if (ret) {
++		set_fit_ubi_diagnostic("mount", data, size, mtd, NULL, 0, ret);
+ 		return ret;
++	}
+ 
+ 	split_layout = ubi_find_volume(PART_KERNEL_NAME) ||
+ 		       ubi_find_volume(PART_ROOTFS_NAME);
+ 	ubi = ubi_devices[0];
+ 	user_volumes = ubi ? ubi->vol_count - UBI_INT_VOL_COUNT : -1;
++	set_fit_ubi_diagnostic("attached", data, size, mtd, ubi, 0, 0);
+ 
+ 	if (split_layout ||
+ 	    (user_volumes > 0 &&
+ 	     !ubi_find_volume(PART_FIT_NAME) &&
+ 	     !ubi_find_volume(PART_FIP_NAME))) {
+ 		/* ubi is dirty, erase ubi and recreate volumes */
++		set_fit_ubi_diagnostic("rebuild-erase", data, size, mtd, ubi, 0, 0);
+ 		ubi_exit();
+ 		ret = mtd_erase_skip_bad(mtd, 0, mtd->size, mtd->size, NULL, NULL, false);
+-		if (ret)
++		if (ret) {
++			set_fit_ubi_diagnostic("rebuild-erase", data, size, mtd,
++					       NULL, 0, ret);
+ 			return ret;
++		}
+ 
++		set_fit_ubi_diagnostic("rebuild-mount", data, size, mtd,
++				       NULL, 0, 0);
+ 		ret = mount_ubi(mtd, true);
+-		if (ret)
++		if (ret) {
++			set_fit_ubi_diagnostic("rebuild-mount", data, size, mtd,
++					       NULL, 0, ret);
+ 			return ret;
++		}
+ 
+ #ifdef CONFIG_ENV_IS_IN_UBI
+ 		ret = create_ubi_volume(CONFIG_ENV_UBI_VOLUME, CONFIG_ENV_SIZE, UBI_VOL_NUM_AUTO, false);
+@@ -737,35 +782,58 @@ static int write_ubi_fit_image(const void *data, size_t size,
+ 	remove_ubi_volume(PART_ROOTFS_DATA_NAME);
+ 
+ 	ubi = ubi_devices[0];
+-	if (!ubi || !ubi->leb_size)
++	if (!ubi || !ubi->leb_size) {
++		set_fit_ubi_diagnostic("geometry", data, size, mtd, ubi, 0,
++				       -ENODEV);
+ 		return -ENODEV;
++	}
+ 
+ 	required_pebs = DIV_ROUND_UP_ULL(size, ubi->leb_size);
++	set_fit_ubi_diagnostic("capacity", data, size, mtd, ubi,
++			       required_pebs, 0);
+ 	cprintln(NORMAL,
+ 		 "*** FIT size %zu requires %llu LEBs; %d are available ***",
+ 		 size, required_pebs, ubi->avail_pebs);
+ 	if (required_pebs > ubi->avail_pebs) {
+ 		cprintln(ERROR, "*** FIT volume does not fit in the attached UBI device ***");
++		set_fit_ubi_diagnostic("capacity", data, size, mtd, ubi,
++				       required_pebs, -EFBIG);
+ 		return -EFBIG;
+ 	}
+ 
+ 	ret = update_ubi_volume_custom_stage(PART_FIT_NAME, -1, data, size,
+ 					     size, true, &stage);
+ 	if (ret) {
++		const char *failure_stage = "fit-prepare";
++
++		raw_ret = ret;
+ 		cprintln(ERROR, "*** FIT volume stage %d failed, err = %d ***",
+ 			 stage, ret);
+ 		if (ret == -ENOSPC && stage == UBI_UPDATE_CREATE)
+ 			ret = -EFBIG;
+ 		else if (ret == -ENOSPC && stage == UBI_UPDATE_WRITE)
+ 			ret = -EIO;
++		if (stage == UBI_UPDATE_CREATE)
++			failure_stage = "fit-create";
++		else if (stage == UBI_UPDATE_WRITE)
++			failure_stage = "fit-write";
++		set_fit_ubi_diagnostic(failure_stage,
++				       data, size, mtd, ubi, required_pebs,
++				       raw_ret);
+ 		goto out;
+ 	}
+ 
+ 	ret = create_ubi_volume(PART_ROOTFS_DATA_NAME, 0, -1, true);
+-	if (ret)
++	if (ret) {
+ 		cprintln(ERROR,
+ 			 "*** FIT was written, but rootfs_data creation failed, err = %d ***",
+ 			 ret);
++		set_fit_ubi_diagnostic("overlay-create", data, size, mtd, ubi,
++				       required_pebs, ret);
++	} else {
++		set_fit_ubi_diagnostic("complete", data, size, mtd, ubi,
++				       required_pebs, 0);
++	}
+ 
+ out:
+ 	return ret;
+@@ -1264,6 +1332,7 @@ int mtd_upgrade_image(const void *data, size_t size)
+ #endif
+ #endif /* CONFIG_CMD_UBI */
+ 
++	mtd_upgrade_diagnostic[0] = '\0';
+ 	gen_mtd_probe_devices();
+ 
+ #ifdef CONFIG_CMD_UBI
+diff --git a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.h b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.h
+--- a/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.h
++++ b/uboot-mtk-20230718-09eda825/board/mediatek/common/mtd_helper.h
+@@ -30,6 +30,7 @@ int boot_from_mtd(struct mtd_info *mtd, u64 offset);
+ void gen_mtd_probe_devices(void);
+ int ubi_upgrade_volume(const char *name, const void *data, size_t size,
+ 		       uint64_t reserved_size, bool dynamic);
++const char *mtd_get_last_upgrade_diagnostic(void);
+ int mtd_upgrade_image(const void *data, size_t size);
+ int mtd_boot_image(void);
+ 
+diff --git a/uboot-mtk-20230718-09eda825/failsafe/failsafe.c b/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
+--- a/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
++++ b/uboot-mtk-20230718-09eda825/failsafe/failsafe.c
+@@ -47,6 +47,11 @@ int __weak failsafe_write_image(const void *data, size_t size, failsafe_fw_t fw)
+ 	return -ENOSYS;
+ }
+ 
++const char *__weak mtd_get_last_upgrade_diagnostic(void)
++{
++	return "";
++}
++
+ static int output_plain_file(struct httpd_response *response,
+ 			     const char *filename)
+ {
+@@ -227,6 +232,7 @@ static void result_handler(enum httpd_uri_handler_status status,
+ 			  struct httpd_response *response)
+ {
+ 	struct flashing_status *st;
++	const char *diagnostic;
+ 	u32 size;
+ 
+ 	if (status == HTTP_CB_NEW) {
+@@ -287,8 +293,14 @@ static void result_handler(enum httpd_uri_handler_status status,
+ 		if (!st->ret)
+ 			response->data = "success";
+ 		else {
+-			snprintf(st->buf, sizeof(st->buf), "failed:write:%d",
+-				 st->ret);
++			diagnostic = mtd_get_last_upgrade_diagnostic();
++			if (fw_type == FW_TYPE_FW && diagnostic && *diagnostic)
++				snprintf(st->buf, sizeof(st->buf),
++					 "failed:write:%d;%s", st->ret,
++					 diagnostic);
++			else
++				snprintf(st->buf, sizeof(st->buf),
++					 "failed:write:%d", st->ret);
+ 			response->data = st->buf;
+ 		}
+ 
