@@ -1,0 +1,18 @@
+diff --git a/uboot-mtk-20230718-09eda825/cmd/ubi.c b/uboot-mtk-20230718-09eda825/cmd/ubi.c
+--- a/uboot-mtk-20230718-09eda825/cmd/ubi.c
++++ b/uboot-mtk-20230718-09eda825/cmd/ubi.c
+@@ -580,6 +580,14 @@ int ubi_part(char *part_name, const char *vid_header_offset)
+ 	struct mtd_info *mtd;
+ 	int err = 0;
+ 
++	/*
++	 * Some board update paths reset the UBI subsystem directly. Do not
++	 * trust the command layer's cached selection after ubi_devices[] has
++	 * been cleared, or a later attach can falsely report success.
++	 */
++	if (ubi && ubi_devices[0] != ubi)
++		ubi = NULL;
++
+ 	if (ubi && ubi->mtd && !strcmp(ubi->mtd->name, part_name)) {
+ 		printf("UBI partition '%s' already selected\n", part_name);
+ 		return 0;

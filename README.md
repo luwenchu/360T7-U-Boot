@@ -11,8 +11,8 @@ hardware code, NOR partition table, ART/CDT handler, or binary is used.
 The interface provides dedicated pages for firmware update, initramfs RAM boot
 and U-Boot FIP update. The U-Boot page only uses the upstream validated `fip`
 upload path and writes the fixed-layout `fip` partition.
-All three Web pages display the release marker `U-Boot v1.0.13` and use the
-footer `郑州子安信息科技 · 构建日期：2026-08-01`. The release marker is static
+All three Web pages display the release marker `U-Boot v1.0.14` and use the
+footer `郑州子安信息科技 · 构建日期：2026-08-23`. The release marker is static
 and intentionally separate from the upstream U-Boot version string so the
 installed recovery build can be identified without a serial console.
 
@@ -70,6 +70,12 @@ space remaining beside the old FIT reservation, which incorrectly rejected a
 same-size replacement even though deleting the old volume released enough
 PEBs.
 
+After a UBI rebuild, the U-Boot command layer also verifies that its cached
+partition selection still matches the active `ubi_devices[0]` instance. If the
+UBI subsystem was reset directly, the stale selection is discarded before the
+partition is scanned again. This prevents a false successful attach followed
+by a `stage=geometry` failure with all geometry fields reported as `-1`.
+
 FIT creation and data-writing failures are tracked separately, and positive
 and negative UBI errno conventions are normalized before returning to the Web
 handler. A FIT capacity or creation ENOSPC is reported as `failed:write:-27`;
@@ -123,8 +129,8 @@ sparse checkout, applies the local Web overlay and builds only:
 SOC=mt7981 BOARD=360t7 FIXED_MTDPARTS=1 ./build.sh
 ```
 
-`SOURCE_DATE_EPOCH` is fixed to `2026-08-01 00:00:00 UTC`; the visible Web
-build date is also `2026-08-01`. `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST`
+`SOURCE_DATE_EPOCH` is fixed to `2026-08-23 00:00:00 UTC`; the visible Web
+build date is also `2026-08-23`. `KBUILD_BUILD_USER` and `KBUILD_BUILD_HOST`
 remain fixed so repeated builds of the same repository commit produce the same
 FIP hash.
 
