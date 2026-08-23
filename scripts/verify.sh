@@ -152,7 +152,7 @@ done
 grep -Fq '支持 combined FIT BIN 和标准 qihoo_360t7 sysupgrade BIN' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "Web recovery firmware format guidance is missing"
-grep -Fq '郑州子安信息科技 · 构建日期：2026-08-01' \
+grep -Fq '郑州子安信息科技 · 构建日期：2026-08-23' \
 	"$SOURCE_DIR/uboot-mtk-20230718-09eda825/failsafe/fsdata/index.html" ||
 	fail "company footer is missing from index.html"
 if grep -Fq 'IPQ60xx 的 ART、CDT 或 NOR 分区操作' \
